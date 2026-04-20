@@ -42,6 +42,7 @@ contract ERC7540Fungibility is ERC165, IERC7540Fungibility {
   mapping(uint256 id => Token) tokens;
 
   constructor(address delegate) {
+    require(delegate != address(0), ERC7540FungibilityInvalidInput());
     DELEGATE = delegate;
   }
 
@@ -181,7 +182,7 @@ contract ERC7540Fungibility is ERC165, IERC7540Fungibility {
 
     address vault = tokens[id].vault;
 
-    dec = tokens[id].kind == Kind.Deposit
+    dec = tokens[id].kind == Kind.Redeem
       ? IERC20Metadata(vault).decimals()
       : IERC20Metadata(IERC4626(vault).asset()).decimals();
   }
@@ -199,6 +200,7 @@ contract ERC7540Fungibility is ERC165, IERC7540Fungibility {
   ) external ownerOrOperator(controller) returns (uint256 tokenId) {
     requireInterface(vault, type(IERC7540Deposit).interfaceId);
     requireInterface(vault, type(IERC8161DepositTransferable).interfaceId);
+    require(receiver != address(0), ERC7540FungibilityInvalidInput());
 
     uint256 assets = IERC7540Deposit(vault).pendingDepositRequest(requestId, controller);
     require(assets > 0, ERC7540FungibilityInvalidInput());
@@ -234,6 +236,7 @@ contract ERC7540Fungibility is ERC165, IERC7540Fungibility {
   ) external ownerOrOperator(controller) returns (uint256 tokenId) {
     requireInterface(vault, type(IERC7540Redeem).interfaceId);
     requireInterface(vault, type(IERC8161RedeemTransferable).interfaceId);
+    require(receiver != address(0), ERC7540FungibilityInvalidInput());
 
     uint256 shares = IERC7540Redeem(vault).pendingRedeemRequest(requestId, controller);
     require(shares > 0, ERC7540FungibilityInvalidInput());
@@ -269,11 +272,25 @@ contract ERC7540Fungibility is ERC165, IERC7540Fungibility {
   ) external ownerOrOperator(owner) returns (uint256 tokenId) {
     requireInterface(vault, type(IERC7540Deposit).interfaceId);
     require(assets > 0, ERC7540FungibilityInvalidInput());
+    require(receiver != address(0), ERC7540FungibilityInvalidInput());
 
     tokenId = ++_tokenId;
 
     address asset = IERC4626(vault).asset();
 
+    Token storage token = tokens[tokenId];
+    token.tokenId = tokenId;
+    token.owner = receiver;
+    token.vault = vault;
+    token.kind = Kind.Deposit;
+
+    totalSupply[tokenId] = assets;
+
+    balanceOf[token.owner][tokenId] = assets;
+
+    emit Transfer(msg.sender, address(0), token.owner, tokenId, assets);
+
+    // perform the underlying requestDeposit and update the requestId
     address payable delegate = DELEGATE.deploy(tokenId);
 
     IERC20(asset).safeTransferFrom(owner, delegate, assets);
@@ -285,18 +302,7 @@ contract ERC7540Fungibility is ERC165, IERC7540Fungibility {
       abi.encodeCall(IERC7540Deposit.requestDeposit, (assets, delegate, delegate))
     );
 
-    Token storage token = tokens[tokenId];
-    token.tokenId = tokenId;
-    token.owner = receiver;
-    token.vault = vault;
-    token.kind = Kind.Deposit;
     token.requestId = abi.decode(result, (uint256));
-
-    totalSupply[tokenId] = assets;
-
-    balanceOf[token.owner][tokenId] = assets;
-
-    emit Transfer(msg.sender, address(0), token.owner, tokenId, assets);
 
     emit RequestDeposit(tokenId, vault, token.owner, assets, msg.sender);
   }
@@ -310,24 +316,15 @@ contract ERC7540Fungibility is ERC165, IERC7540Fungibility {
   ) external ownerOrOperator(owner) returns (uint256 tokenId) {
     requireInterface(vault, type(IERC7540Redeem).interfaceId);
     require(shares > 0, ERC7540FungibilityInvalidInput());
+    require(receiver != address(0), ERC7540FungibilityInvalidInput());
 
     tokenId = ++_tokenId;
-
-    address payable delegate = DELEGATE.deploy(tokenId);
-
-    IERC20(vault).safeTransferFrom(owner, delegate, shares);
-
-    bytes memory result = Delegate(delegate).call(
-      vault,
-      abi.encodeCall(IERC7540Redeem.requestRedeem, (shares, delegate, delegate))
-    );
 
     Token storage token = tokens[tokenId];
     token.tokenId = tokenId;
     token.owner = receiver;
     token.vault = vault;
     token.kind = Kind.Redeem;
-    token.requestId = abi.decode(result, (uint256));
 
     totalSupply[tokenId] = shares;
 
@@ -335,16 +332,32 @@ contract ERC7540Fungibility is ERC165, IERC7540Fungibility {
 
     emit Transfer(msg.sender, address(0), token.owner, tokenId, shares);
 
+    // perform the underlying requestRedeem and update the requestId
+    address payable delegate = DELEGATE.deploy(tokenId);
+
+    IERC20(vault).safeTransferFrom(owner, delegate, shares);
+
+    Delegate(delegate).safeApprove(address(vault), vault, shares);
+
+    bytes memory result = Delegate(delegate).call(
+      vault,
+      abi.encodeCall(IERC7540Redeem.requestRedeem, (shares, delegate, delegate))
+    );
+
+    token.requestId = abi.decode(result, (uint256));
+
     emit RequestRedeem(tokenId, vault, token.owner, shares, msg.sender);
   }
 
   /// @inheritdoc IERC7540Fungibility
   function cancel(uint256 tokenId, address controller) external tokenExists(tokenId) tokenOwnerOrOperator(tokenId) {
+    require(controller != address(0), ERC7540FungibilityInvalidInput());
+
     Token storage token = tokens[tokenId];
 
-    // can only cancel if the owner still holds all of the supply
+    // can only cancel if the owner still holds all of the supply and the request is still pending
     uint256 balance = balanceOf[token.owner][tokenId];
-    require(balance == totalSupply[tokenId], ERC7540FungibilityCancelNotAllowed(tokenId));
+    require(balance == totalSupply[tokenId] && pending(tokenId), ERC7540FungibilityCancelNotAllowed(tokenId));
 
     balanceOf[token.owner][tokenId] = 0;
     totalSupply[tokenId] = 0;
@@ -372,7 +385,7 @@ contract ERC7540Fungibility is ERC165, IERC7540Fungibility {
 
   function pending(uint256 tokenId) public view returns (bool) {
     Token storage token = tokens[tokenId];
-    return token.kind == Kind.Deposit ? pendingDeposit(token) : pendingRedeem(token);
+    return totalSupply[tokenId] > 0 && token.kind == Kind.Deposit ? pendingDeposit(token) : pendingRedeem(token);
   }
 
   function pendingDeposit(Token storage token) private view returns (bool) {
@@ -392,6 +405,9 @@ contract ERC7540Fungibility is ERC165, IERC7540Fungibility {
     address receiver,
     address owner
   ) external ownerOrOperator(owner) tokenExists(tokenId) returns (uint256 assets) {
+    require(shares > 0, ERC7540FungibilityInvalidInput());
+    require(receiver != address(0), ERC7540FungibilityInvalidInput());
+
     require(pending(tokenId) == false, ERC7540FungibilityPending(tokenId));
 
     Token storage token = tokens[tokenId];
@@ -416,7 +432,10 @@ contract ERC7540Fungibility is ERC165, IERC7540Fungibility {
   function claimDeposit(Token storage token, uint256 shares, address receiver) private returns (uint256) {
     address payable delegate = DELEGATE.predict(token.tokenId);
 
-    bytes memory result = Delegate(delegate).call(token.vault, abi.encodeCall(IERC4626.deposit, (shares, receiver)));
+    bytes memory result = Delegate(delegate).call(
+      token.vault,
+      abi.encodeCall(IERC7540Deposit.deposit, (shares, receiver, delegate))
+    );
 
     return abi.decode(result, (uint256));
   }

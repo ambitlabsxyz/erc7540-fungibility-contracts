@@ -174,7 +174,7 @@ interface IERC7540Fungibility is IERC165, IERC6909, IERC6909Metadata, IERC6909To
    * specified controller via ERC-8161. Burns all ERC-6909 tokens and deletes the request.
    *
    * Only callable by the token owner or their operator.
-   * Only allowed if the owner still holds all shares (no transfers have occurred).
+   * Only allowed if the owner still holds all shares.
    * The vault must support ERC-8161 transferable requests.
    *
    * @param tokenId The ERC-6909 token ID to cancel

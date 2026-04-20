@@ -12,7 +12,6 @@ silence_warnings = true
 remappings = [
     "src/=src/",
     "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
-    "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
     "@ambitlabs/delegate-contracts/=lib/delegate-contracts/src/" 
 ] 
 fs_permissions = [
