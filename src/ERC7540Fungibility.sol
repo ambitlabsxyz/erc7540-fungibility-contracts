@@ -276,8 +276,6 @@ contract ERC7540Fungibility is ERC165, IERC7540Fungibility {
 
     tokenId = ++_tokenId;
 
-    address asset = IERC4626(vault).asset();
-
     Token storage token = tokens[tokenId];
     token.tokenId = tokenId;
     token.owner = receiver;
@@ -290,8 +288,20 @@ contract ERC7540Fungibility is ERC165, IERC7540Fungibility {
 
     emit Transfer(msg.sender, address(0), token.owner, tokenId, assets);
 
-    // perform the underlying requestDeposit and update the requestId
+    token.requestId = requestDeposit(vault, assets, owner, tokenId);
+
+    emit RequestDeposit(tokenId, vault, token.owner, assets, msg.sender);
+  }
+
+  function requestDeposit(
+    address vault,
+    uint256 assets,
+    address owner,
+    uint256 tokenId
+  ) private returns (uint256 requestId) {
     address payable delegate = DELEGATE.deploy(tokenId);
+
+    address asset = IERC4626(vault).asset();
 
     IERC20(asset).safeTransferFrom(owner, delegate, assets);
 
@@ -302,9 +312,7 @@ contract ERC7540Fungibility is ERC165, IERC7540Fungibility {
       abi.encodeCall(IERC7540Deposit.requestDeposit, (assets, delegate, delegate))
     );
 
-    token.requestId = abi.decode(result, (uint256));
-
-    emit RequestDeposit(tokenId, vault, token.owner, assets, msg.sender);
+    requestId = abi.decode(result, (uint256));
   }
 
   /// @inheritdoc IERC7540Fungibility
@@ -332,7 +340,17 @@ contract ERC7540Fungibility is ERC165, IERC7540Fungibility {
 
     emit Transfer(msg.sender, address(0), token.owner, tokenId, shares);
 
-    // perform the underlying requestRedeem and update the requestId
+    token.requestId = requestRedeem(vault, shares, owner, tokenId);
+
+    emit RequestRedeem(tokenId, vault, token.owner, shares, msg.sender);
+  }
+
+  function requestRedeem(
+    address vault,
+    uint256 shares,
+    address owner,
+    uint256 tokenId
+  ) private returns (uint256 requestId) {
     address payable delegate = DELEGATE.deploy(tokenId);
 
     IERC20(vault).safeTransferFrom(owner, delegate, shares);
@@ -344,9 +362,7 @@ contract ERC7540Fungibility is ERC165, IERC7540Fungibility {
       abi.encodeCall(IERC7540Redeem.requestRedeem, (shares, delegate, delegate))
     );
 
-    token.requestId = abi.decode(result, (uint256));
-
-    emit RequestRedeem(tokenId, vault, token.owner, shares, msg.sender);
+    requestId = abi.decode(result, (uint256));
   }
 
   /// @inheritdoc IERC7540Fungibility
@@ -385,7 +401,7 @@ contract ERC7540Fungibility is ERC165, IERC7540Fungibility {
 
   function pending(uint256 tokenId) public view returns (bool) {
     Token storage token = tokens[tokenId];
-    return totalSupply[tokenId] > 0 && token.kind == Kind.Deposit ? pendingDeposit(token) : pendingRedeem(token);
+    return totalSupply[tokenId] > 0 && (token.kind == Kind.Deposit ? pendingDeposit(token) : pendingRedeem(token));
   }
 
   function pendingDeposit(Token storage token) private view returns (bool) {
