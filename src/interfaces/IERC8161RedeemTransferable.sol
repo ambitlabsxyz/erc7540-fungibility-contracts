@@ -8,7 +8,7 @@ pragma solidity ^0.8.28;
  *         requests. ERC-165 interface ID: 0x7846f5bd
  */
 interface IERC8161RedeemTransferable {
-  event TransferRedeemRequest(uint256 indexed requestId, address indexed from, address indexed to, uint256 shares);
+  event TransferRedeemRequest(uint256 indexed requestId, address indexed from, address indexed to, address sender);
 
   /**
    * @notice Transfers the entire pending redeem request balance from

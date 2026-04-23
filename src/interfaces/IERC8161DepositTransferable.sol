@@ -8,7 +8,7 @@ pragma solidity ^0.8.28;
  *         requests. ERC-165 interface ID: 0x53b3bb0a
  */
 interface IERC8161DepositTransferable {
-  event TransferDepositRequest(uint256 indexed requestId, address indexed from, address indexed to, uint256 assets);
+  event TransferDepositRequest(uint256 indexed requestId, address indexed from, address indexed to, address sender);
 
   /**
    * @notice Transfers the entire pending deposit request balance from
