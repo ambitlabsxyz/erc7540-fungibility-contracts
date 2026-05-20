@@ -83,7 +83,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     uint256 requestId,
     address controller,
     address receiver
-  ) external ownerOrOperator(controller) returns (ClaimToken claimToken, uint256 tokenId) {
+  ) external ownerOrOperator(controller) returns (address claimToken, uint256 tokenId) {
     requireInterface(vault, type(IERC7540Deposit).interfaceId);
     requireInterface(vault, type(IERC8161DepositTransferable).interfaceId);
     require(receiver != address(0), ERC7540FungibilityInvalidInput());
@@ -91,22 +91,22 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     uint256 assets = IERC7540Deposit(vault).pendingDepositRequest(requestId, controller);
     require(assets > 0, ERC7540FungibilityInvalidInput());
 
-    claimToken = ClaimToken(getOrCreateClaimToken(depositClaimToken, vault, 0));
+    claimToken = getOrCreateClaimToken(depositClaimToken, vault, 0);
 
-    tokenId = claimToken.next();
+    tokenId = ClaimToken(claimToken).next();
 
-    Request storage request = requests[address(claimToken)][tokenId];
+    Request storage request = requests[claimToken][tokenId];
     request.owner = receiver;
     request.vault = vault;
     request.requestId = requestId;
 
-    claimToken.mint(receiver, tokenId, assets);
+    ClaimToken(claimToken).mint(receiver, tokenId, assets);
 
-    address payable delegate = DELEGATE.deploy(keccak256(abi.encode(address(claimToken), tokenId)));
+    address payable delegate = DELEGATE.deploy(keccak256(abi.encode(claimToken, tokenId)));
 
     IERC8161DepositTransferable(vault).transferDepositRequest(requestId, controller, delegate);
 
-    emit TransferDeposit(address(claimToken), tokenId, vault, request.owner, requestId, msg.sender);
+    emit TransferDeposit(claimToken, tokenId, vault, request.owner, requestId, msg.sender);
   }
 
   /// @inheritdoc IERC7540Fungibility
@@ -115,7 +115,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     uint256 requestId,
     address controller,
     address receiver
-  ) external ownerOrOperator(controller) returns (ClaimToken claimToken, uint256 tokenId) {
+  ) external ownerOrOperator(controller) returns (address claimToken, uint256 tokenId) {
     requireInterface(vault, type(IERC7540Redeem).interfaceId);
     requireInterface(vault, type(IERC8161RedeemTransferable).interfaceId);
     require(receiver != address(0), ERC7540FungibilityInvalidInput());
@@ -123,22 +123,22 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     uint256 shares = IERC7540Redeem(vault).pendingRedeemRequest(requestId, controller);
     require(shares > 0, ERC7540FungibilityInvalidInput());
 
-    claimToken = ClaimToken(getOrCreateClaimToken(redeemClaimToken, vault, 1));
+    claimToken = getOrCreateClaimToken(redeemClaimToken, vault, 1);
 
-    tokenId = claimToken.next();
+    tokenId = ClaimToken(claimToken).next();
 
-    Request storage request = requests[address(claimToken)][tokenId];
+    Request storage request = requests[claimToken][tokenId];
     request.owner = receiver;
     request.vault = vault;
     request.requestId = requestId;
 
-    claimToken.mint(receiver, tokenId, shares);
+    ClaimToken(claimToken).mint(receiver, tokenId, shares);
 
-    address payable delegate = DELEGATE.deploy(keccak256(abi.encode(address(claimToken), tokenId)));
+    address payable delegate = DELEGATE.deploy(keccak256(abi.encode(claimToken, tokenId)));
 
     IERC8161RedeemTransferable(vault).transferRedeemRequest(requestId, controller, delegate);
 
-    emit TransferRedeem(address(claimToken), tokenId, vault, request.owner, requestId, msg.sender);
+    emit TransferRedeem(claimToken, tokenId, vault, request.owner, requestId, msg.sender);
   }
 
   /// @inheritdoc IERC7540Fungibility
@@ -147,26 +147,26 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     uint256 assets,
     address owner,
     address receiver
-  ) external ownerOrOperator(owner) returns (ClaimToken claimToken, uint256 tokenId) {
+  ) external ownerOrOperator(owner) returns (address claimToken, uint256 tokenId) {
     requireInterface(vault, type(IERC7540Deposit).interfaceId);
     require(assets > 0, ERC7540FungibilityInvalidInput());
     require(receiver != address(0), ERC7540FungibilityInvalidInput());
 
-    claimToken = ClaimToken(getOrCreateClaimToken(depositClaimToken, vault, 0));
+    claimToken = getOrCreateClaimToken(depositClaimToken, vault, 0);
 
-    tokenId = claimToken.next();
+    tokenId = ClaimToken(claimToken).next();
 
-    Request storage request = requests[address(claimToken)][tokenId];
+    Request storage request = requests[claimToken][tokenId];
     request.owner = receiver;
     request.vault = vault;
 
-    claimToken.mint(receiver, tokenId, assets);
+    ClaimToken(claimToken).mint(receiver, tokenId, assets);
 
-    address payable delegate = DELEGATE.deploy(keccak256(abi.encode(address(claimToken), tokenId)));
+    address payable delegate = DELEGATE.deploy(keccak256(abi.encode(claimToken, tokenId)));
 
     request.requestId = requestDeposit(delegate, vault, assets, receiver);
 
-    emit RequestDeposit(address(claimToken), tokenId, vault, request.owner, assets, msg.sender);
+    emit RequestDeposit(claimToken, tokenId, vault, request.owner, assets, msg.sender);
   }
 
   function requestDeposit(
@@ -195,26 +195,26 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     uint256 shares,
     address owner,
     address receiver
-  ) external ownerOrOperator(owner) returns (ClaimToken claimToken, uint256 tokenId) {
+  ) external ownerOrOperator(owner) returns (address claimToken, uint256 tokenId) {
     requireInterface(vault, type(IERC7540Redeem).interfaceId);
     require(shares > 0, ERC7540FungibilityInvalidInput());
     require(receiver != address(0), ERC7540FungibilityInvalidInput());
 
-    claimToken = ClaimToken(getOrCreateClaimToken(redeemClaimToken, vault, 1));
+    claimToken = getOrCreateClaimToken(redeemClaimToken, vault, 1);
 
-    tokenId = claimToken.next();
+    tokenId = ClaimToken(claimToken).next();
 
-    Request storage request = requests[address(claimToken)][tokenId];
+    Request storage request = requests[claimToken][tokenId];
     request.owner = receiver;
     request.vault = vault;
 
-    claimToken.mint(receiver, tokenId, shares);
+    ClaimToken(claimToken).mint(receiver, tokenId, shares);
 
-    address payable delegate = DELEGATE.deploy(keccak256(abi.encode(address(claimToken), tokenId)));
+    address payable delegate = DELEGATE.deploy(keccak256(abi.encode(claimToken, tokenId)));
 
     request.requestId = requestRedeem(delegate, vault, shares, receiver);
 
-    emit RequestRedeem(address(claimToken), tokenId, vault, request.owner, shares, msg.sender);
+    emit RequestRedeem(claimToken, tokenId, vault, request.owner, shares, msg.sender);
   }
 
   function requestRedeem(

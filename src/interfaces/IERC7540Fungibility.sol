@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { ClaimToken } from "../ClaimToken.sol";
-
 /**
  * @title IERC7540Fungibility
  *
@@ -161,7 +159,7 @@ interface IERC7540Fungibility {
     uint256 requestId,
     address controller,
     address receiver
-  ) external returns (ClaimToken claimToken, uint256 tokenId);
+  ) external returns (address claimToken, uint256 tokenId);
 
   /**
    * @notice Wraps an existing pending redeem request into fungible ERC-6909 claim tokens.
@@ -184,7 +182,7 @@ interface IERC7540Fungibility {
     uint256 requestId,
     address controller,
     address receiver
-  ) external returns (ClaimToken claimToken, uint256 tokenId);
+  ) external returns (address claimToken, uint256 tokenId);
 
   // =========================================================================
   // Originating new vault requests
@@ -215,7 +213,7 @@ interface IERC7540Fungibility {
     uint256 assets,
     address owner,
     address receiver
-  ) external returns (ClaimToken claimToken, uint256 tokenId);
+  ) external returns (address claimToken, uint256 tokenId);
 
   /**
    * @notice Originates a new redeem request on `vault` from `owner`'s vault shares
@@ -242,7 +240,7 @@ interface IERC7540Fungibility {
     uint256 shares,
     address owner,
     address receiver
-  ) external returns (ClaimToken claimToken, uint256 tokenId);
+  ) external returns (address claimToken, uint256 tokenId);
 
   // =========================================================================
   // Exit
