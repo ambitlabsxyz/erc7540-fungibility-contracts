@@ -1,16 +1,11 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import { ERC165 } from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import { ERC165Checker } from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
-import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
-import { IERC6909, IERC6909Metadata, IERC6909TokenSupply } from "@openzeppelin/contracts/interfaces/IERC6909.sol";
 import { IERC7540Deposit } from "./interfaces/IERC7540Deposit.sol";
 import { IERC7540Redeem } from "./interfaces/IERC7540Redeem.sol";
 import { IERC8161DepositTransferable } from "./interfaces/IERC8161DepositTransferable.sol";
@@ -54,8 +49,12 @@ contract ERC7540Fungibility is IERC7540Fungibility {
   // =========================================================================
 
   modifier ownerOrOperator(address owner) {
-    require(msg.sender == owner || isOperator[owner][msg.sender], ERC7540FungibilityUnauthorized());
+    checkOwnerOroperator(owner);
     _;
+  }
+
+  function checkOwnerOroperator(address owner) private view {
+    require(msg.sender == owner || isOperator[owner][msg.sender], ERC7540FungibilityUnauthorized());
   }
 
   // =========================================================================
@@ -78,6 +77,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     }
   }
 
+  /// @inheritdoc IERC7540Fungibility
   function transferDeposit(
     address vault,
     uint256 requestId,
@@ -109,6 +109,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     emit TransferDeposit(address(claimToken), tokenId, vault, request.owner, requestId, msg.sender);
   }
 
+  /// @inheritdoc IERC7540Fungibility
   function transferRedeem(
     address vault,
     uint256 requestId,
@@ -140,6 +141,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     emit TransferRedeem(address(claimToken), tokenId, vault, request.owner, requestId, msg.sender);
   }
 
+  /// @inheritdoc IERC7540Fungibility
   function requestDeposit(
     address vault,
     uint256 assets,
@@ -187,6 +189,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     requestId = abi.decode(result, (uint256));
   }
 
+  /// @inheritdoc IERC7540Fungibility
   function requestRedeem(
     address vault,
     uint256 shares,
@@ -232,6 +235,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     requestId = abi.decode(result, (uint256));
   }
 
+  /// @inheritdoc IERC7540Fungibility
   function cancel(address claimToken, uint256 tokenId, address controller) external {
     require(controller != address(0), ERC7540FungibilityInvalidInput());
 
@@ -284,6 +288,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     delete requests[claimToken][tokenId];
   }
 
+  /// @inheritdoc IERC7540Fungibility
   function pending(address claimToken, uint256 tokenId) public view returns (bool) {
     Request storage request = requests[claimToken][tokenId];
     if (request.vault == address(0) || ClaimToken(claimToken).totalSupply(tokenId) == 0) {
@@ -296,6 +301,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     return IERC7540Redeem(request.vault).pendingRedeemRequest(request.requestId, delegate) > 0;
   }
 
+  /// @inheritdoc IERC7540Fungibility
   function redeem(
     address claimToken,
     uint256 tokenId,
@@ -354,6 +360,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
   // General
   // =========================================================================
 
+  /// @inheritdoc IERC7540Fungibility
   function setOperator(address spender, bool approved) external returns (bool) {
     require(spender != address(0), ERC7540FungibilityInvalidInput());
 
