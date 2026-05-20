@@ -134,6 +134,34 @@ interface IERC7540Fungibility {
    */
   function pending(address claimToken, uint256 tokenId) external view returns (bool);
 
+  /**
+   * @notice Returns the (vault, deposit) `ClaimToken` contract for `vault`.
+   *
+   * @dev    A `ClaimToken` is deployed lazily on the first deposit wrap or
+   *         origination for a given vault. Returns the zero address if no
+   *         deposit `ClaimToken` has been deployed for `vault` yet.
+   *
+   * @param  vault      the vault whose deposit `ClaimToken` is being queried
+   *
+   * @return claimToken the (vault, deposit) `ClaimToken` contract, or the
+   *                    zero address if none has been deployed
+   */
+  function depositClaimToken(address vault) external view returns (address claimToken);
+
+  /**
+   * @notice Returns the (vault, redeem) `ClaimToken` contract for `vault`.
+   *
+   * @dev    A `ClaimToken` is deployed lazily on the first redeem wrap or
+   *         origination for a given vault. Returns the zero address if no
+   *         redeem `ClaimToken` has been deployed for `vault` yet.
+   *
+   * @param  vault      the vault whose redeem `ClaimToken` is being queried
+   *
+   * @return claimToken the (vault, redeem) `ClaimToken` contract, or the
+   *                    zero address if none has been deployed
+   */
+  function redeemClaimToken(address vault) external view returns (address claimToken);
+
   // =========================================================================
   // Wrapping existing pending vault requests (ERC-8161)
   // =========================================================================

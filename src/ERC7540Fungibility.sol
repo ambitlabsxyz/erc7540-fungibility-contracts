@@ -25,9 +25,9 @@ contract ERC7540Fungibility is IERC7540Fungibility {
 
   mapping(address owner => mapping(address operator => bool isOperator)) public isOperator;
 
-  mapping(address vault => address claimToken) depositClaimToken;
+  mapping(address vault => address claimToken) public depositClaimToken;
 
-  mapping(address vault => address claimToken) redeemClaimToken;
+  mapping(address vault => address claimToken) public redeemClaimToken;
 
   struct Request {
     address owner;
