@@ -135,32 +135,72 @@ interface IERC7540Fungibility {
   function pending(address claimToken, uint256 tokenId) external view returns (bool);
 
   /**
-   * @notice Returns the (vault, deposit) `ClaimToken` contract for `vault`.
+   * @notice Computes the deterministic address of the (vault, deposit)
+   *         `ClaimToken` for `vault`.
    *
-   * @dev    A `ClaimToken` is deployed lazily on the first deposit wrap or
-   *         origination for a given vault. Returns the zero address if no
-   *         deposit `ClaimToken` has been deployed for `vault` yet.
+   * @dev    The address is derived from the CREATE2 salt and the clone's
+   *         immutable args `(orchestrator, vault, deposit)`. It is returned
+   *         whether or not the `ClaimToken` has been deployed, so a non-zero
+   *         result does NOT imply deployment — test `claimToken.code.length`
+   *         to check for that, or call `initializeDepositClaimToken` to deploy.
    *
-   * @param  vault      the vault whose deposit `ClaimToken` is being queried
+   * @param  vault      the vault whose deposit `ClaimToken` address is computed
    *
-   * @return claimToken the (vault, deposit) `ClaimToken` contract, or the
-   *                    zero address if none has been deployed
+   * @return claimToken the deterministic (vault, deposit) `ClaimToken` address
    */
-  function depositClaimToken(address vault) external view returns (address claimToken);
+  function predictDepositClaimToken(address vault) external view returns (address claimToken);
 
   /**
-   * @notice Returns the (vault, redeem) `ClaimToken` contract for `vault`.
+   * @notice Computes the deterministic address of the (vault, redeem)
+   *         `ClaimToken` for `vault`.
    *
-   * @dev    A `ClaimToken` is deployed lazily on the first redeem wrap or
-   *         origination for a given vault. Returns the zero address if no
-   *         redeem `ClaimToken` has been deployed for `vault` yet.
+   * @dev    The address is derived from the CREATE2 salt and the clone's
+   *         immutable args `(orchestrator, vault, redeem)`. It is returned
+   *         whether or not the `ClaimToken` has been deployed, so a non-zero
+   *         result does NOT imply deployment — test `claimToken.code.length`
+   *         to check for that, or call `initializeRedeemClaimToken` to deploy.
    *
-   * @param  vault      the vault whose redeem `ClaimToken` is being queried
+   * @param  vault      the vault whose redeem `ClaimToken` address is computed
    *
-   * @return claimToken the (vault, redeem) `ClaimToken` contract, or the
-   *                    zero address if none has been deployed
+   * @return claimToken the deterministic (vault, redeem) `ClaimToken` address
    */
-  function redeemClaimToken(address vault) external view returns (address claimToken);
+  function predictRedeemClaimToken(address vault) external view returns (address claimToken);
+
+  /**
+   * @notice Deploys the (vault, deposit) `ClaimToken` for `vault`, or returns
+   *         the existing one if it has already been deployed.
+   *
+   * @dev    Deploys a deterministic clone at `predictDepositClaimToken(vault)`
+   *         via `cloneDeterministicWithImmutableArgs` with immutable args
+   *         `(orchestrator, vault, deposit)`. Idempotent: a second call for the
+   *         same `vault` returns the existing address without redeploying. The
+   *         returned address always has code on success. Normally invoked
+   *         lazily on the first deposit wrap or origination for `vault`, but may
+   *         be called directly to pre-deploy.
+   *
+   * @param  vault      the vault whose deposit `ClaimToken` is being deployed
+   *
+   * @return claimToken the (vault, deposit) `ClaimToken` contract
+   */
+  function initializeDepositClaimToken(address vault) external returns (address claimToken);
+
+  /**
+   * @notice Deploys the (vault, redeem) `ClaimToken` for `vault`, or returns
+   *         the existing one if it has already been deployed.
+   *
+   * @dev    Deploys a deterministic clone at `predictRedeemClaimToken(vault)`
+   *         via `cloneDeterministicWithImmutableArgs` with immutable args
+   *         `(orchestrator, vault, redeem)`. Idempotent: a second call for the
+   *         same `vault` returns the existing address without redeploying. The
+   *         returned address always has code on success. Normally invoked
+   *         lazily on the first redeem wrap or origination for `vault`, but may
+   *         be called directly to pre-deploy.
+   *
+   * @param  vault      the vault whose redeem `ClaimToken` is being deployed
+   *
+   * @return claimToken the (vault, redeem) `ClaimToken` contract
+   */
+  function initializeRedeemClaimToken(address vault) external returns (address claimToken);
 
   // =========================================================================
   // Wrapping existing pending vault requests (ERC-8161)

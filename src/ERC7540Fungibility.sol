@@ -25,10 +25,6 @@ contract ERC7540Fungibility is IERC7540Fungibility {
 
   mapping(address owner => mapping(address operator => bool isOperator)) public isOperator;
 
-  mapping(address vault => address claimToken) public depositClaimToken;
-
-  mapping(address vault => address claimToken) public redeemClaimToken;
-
   struct Request {
     address owner;
     address vault;
@@ -61,19 +57,29 @@ contract ERC7540Fungibility is IERC7540Fungibility {
   // ERC7540Fungibility
   // =========================================================================
 
-  function getOrCreateClaimToken(
-    mapping(address => address) storage map,
-    address vault,
-    uint8 kind
-  ) private returns (address claimToken) {
-    claimToken = map[vault];
+  /// @inheritdoc IERC7540Fungibility
+  function predictDepositClaimToken(address vault) public view returns (address) {
+    return predictClaimToken(vault, 0);
+  }
 
-    if (address(claimToken) == address(0)) {
-      claimToken = map[vault] = Clones.cloneDeterministicWithImmutableArgs(
-        CLAIM_TOKEN,
-        abi.encode(address(this), vault, kind),
-        0
-      );
+  /// @inheritdoc IERC7540Fungibility
+  function predictRedeemClaimToken(address vault) public view returns (address) {
+    return predictClaimToken(vault, 1);
+  }
+
+  /// @inheritdoc IERC7540Fungibility
+  function initializeDepositClaimToken(address vault) public returns (address claimToken) {
+    claimToken = predictDepositClaimToken(vault);
+    if (claimToken.code.length == 0) {
+      claimToken = deployClaimToken(vault, 0);
+    }
+  }
+
+  /// @inheritdoc IERC7540Fungibility
+  function initializeRedeemClaimToken(address vault) public returns (address claimToken) {
+    claimToken = predictRedeemClaimToken(vault);
+    if (claimToken.code.length == 0) {
+      claimToken = deployClaimToken(vault, 1);
     }
   }
 
@@ -91,7 +97,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     uint256 assets = IERC7540Deposit(vault).pendingDepositRequest(requestId, controller);
     require(assets > 0, ERC7540FungibilityInvalidInput());
 
-    claimToken = getOrCreateClaimToken(depositClaimToken, vault, 0);
+    claimToken = initializeDepositClaimToken(vault);
 
     tokenId = ClaimToken(claimToken).next();
 
@@ -123,7 +129,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     uint256 shares = IERC7540Redeem(vault).pendingRedeemRequest(requestId, controller);
     require(shares > 0, ERC7540FungibilityInvalidInput());
 
-    claimToken = getOrCreateClaimToken(redeemClaimToken, vault, 1);
+    claimToken = initializeRedeemClaimToken(vault);
 
     tokenId = ClaimToken(claimToken).next();
 
@@ -152,7 +158,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     require(assets > 0, ERC7540FungibilityInvalidInput());
     require(receiver != address(0), ERC7540FungibilityInvalidInput());
 
-    claimToken = getOrCreateClaimToken(depositClaimToken, vault, 0);
+    claimToken = initializeDepositClaimToken(vault);
 
     tokenId = ClaimToken(claimToken).next();
 
@@ -200,7 +206,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     require(shares > 0, ERC7540FungibilityInvalidInput());
     require(receiver != address(0), ERC7540FungibilityInvalidInput());
 
-    claimToken = getOrCreateClaimToken(redeemClaimToken, vault, 1);
+    claimToken = initializeRedeemClaimToken(vault);
 
     tokenId = ClaimToken(claimToken).next();
 
@@ -255,7 +261,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
 
     address payable delegate = DELEGATE.predict(keccak256(abi.encode(claimToken, tokenId)));
 
-    if (depositClaimToken[request.vault] == claimToken) {
+    if (predictDepositClaimToken(request.vault) == claimToken) {
       requireInterface(request.vault, type(IERC8161DepositTransferable).interfaceId);
 
       // all shares must still be pending so we avoid partial transfers
@@ -295,7 +301,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
       return false;
     }
     address delegate = DELEGATE.predict(keccak256(abi.encode(claimToken, tokenId)));
-    if (depositClaimToken[request.vault] == claimToken) {
+    if (predictDepositClaimToken(request.vault) == claimToken) {
       return IERC7540Deposit(request.vault).pendingDepositRequest(request.requestId, delegate) > 0;
     }
     return IERC7540Redeem(request.vault).pendingRedeemRequest(request.requestId, delegate) > 0;
@@ -324,7 +330,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
 
     ClaimToken(claimToken).burn(owner, tokenId, shares);
 
-    assets = claimToken == depositClaimToken[request.vault]
+    assets = claimToken == predictDepositClaimToken(request.vault)
       ? claimDeposit(delegate, request.vault, shares, receiver)
       : claimRedeem(delegate, request.vault, shares, receiver);
 
@@ -370,6 +376,19 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     }
 
     return true;
+  }
+
+  function predictClaimToken(address vault, uint8 kind) private view returns (address claimToken) {
+    claimToken = Clones.predictDeterministicAddressWithImmutableArgs(
+      CLAIM_TOKEN,
+      abi.encode(address(this), vault, kind),
+      0,
+      address(this)
+    );
+  }
+
+  function deployClaimToken(address vault, uint8 kind) private returns (address claimToken) {
+    claimToken = Clones.cloneDeterministicWithImmutableArgs(CLAIM_TOKEN, abi.encode(address(this), vault, kind), 0);
   }
 
   function requireInterface(address addr, bytes4 interfaceId) private view {
