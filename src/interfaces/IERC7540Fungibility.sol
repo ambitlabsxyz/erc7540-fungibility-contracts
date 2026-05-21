@@ -376,4 +376,13 @@ interface IERC7540Fungibility {
    * @return success always true
    */
   function setOperator(address spender, bool approved) external returns (bool success);
+
+  // =========================================================================
+  // Metadata
+  // =========================================================================
+
+  function metadata(
+    address claimToken,
+    uint256 tokenId
+  ) external view returns (address owner, address vault, uint256 requestId);
 }

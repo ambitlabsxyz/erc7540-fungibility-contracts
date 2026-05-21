@@ -58,20 +58,30 @@ contract ERC7540Fungibility is IERC7540Fungibility {
   // =========================================================================
 
   /// @inheritdoc IERC7540Fungibility
-  function predictDepositClaimToken(address vault) public view returns (address) {
-    return predictClaimToken(vault, 0);
+  function predictDepositClaimToken(address vault) public view returns (address claimToken) {
+    claimToken = Clones.predictDeterministicAddressWithImmutableArgs(
+      CLAIM_TOKEN,
+      abi.encode(address(this), vault, 0),
+      0,
+      address(this)
+    );
   }
 
   /// @inheritdoc IERC7540Fungibility
-  function predictRedeemClaimToken(address vault) public view returns (address) {
-    return predictClaimToken(vault, 1);
+  function predictRedeemClaimToken(address vault) public view returns (address claimToken) {
+    claimToken = Clones.predictDeterministicAddressWithImmutableArgs(
+      CLAIM_TOKEN,
+      abi.encode(address(this), vault, 1),
+      0,
+      address(this)
+    );
   }
 
   /// @inheritdoc IERC7540Fungibility
   function initializeDepositClaimToken(address vault) public returns (address claimToken) {
     claimToken = predictDepositClaimToken(vault);
     if (claimToken.code.length == 0) {
-      claimToken = deployClaimToken(vault, 0);
+      claimToken = Clones.cloneDeterministicWithImmutableArgs(CLAIM_TOKEN, abi.encode(address(this), vault, 0), 0);
     }
   }
 
@@ -79,7 +89,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
   function initializeRedeemClaimToken(address vault) public returns (address claimToken) {
     claimToken = predictRedeemClaimToken(vault);
     if (claimToken.code.length == 0) {
-      claimToken = deployClaimToken(vault, 1);
+      claimToken = Clones.cloneDeterministicWithImmutableArgs(CLAIM_TOKEN, abi.encode(address(this), vault, 1), 0);
     }
   }
 
@@ -378,23 +388,21 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     return true;
   }
 
-  function predictClaimToken(address vault, uint8 kind) private view returns (address claimToken) {
-    claimToken = Clones.predictDeterministicAddressWithImmutableArgs(
-      CLAIM_TOKEN,
-      abi.encode(address(this), vault, kind),
-      0,
-      address(this)
-    );
-  }
-
-  function deployClaimToken(address vault, uint8 kind) private returns (address claimToken) {
-    claimToken = Clones.cloneDeterministicWithImmutableArgs(CLAIM_TOKEN, abi.encode(address(this), vault, kind), 0);
-  }
-
   function requireInterface(address addr, bytes4 interfaceId) private view {
     require(
       ERC165Checker.supportsInterface(addr, interfaceId),
       ERC7540FungibilityInterfaceNotSupported(addr, interfaceId)
     );
+  }
+
+  // =========================================================================
+  // Metadata
+  // =========================================================================
+  function metadata(
+    address claimToken,
+    uint256 tokenId
+  ) external view returns (address owner, address vault, uint256 requestId) {
+    Request storage request = requests[claimToken][tokenId];
+    return (request.owner, request.vault, request.requestId);
   }
 }
