@@ -170,7 +170,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
 
     address payable delegate = DELEGATE.deploy(keccak256(abi.encode(claimToken, tokenId)));
 
-    request.requestId = requestDeposit(delegate, vault, assets, receiver);
+    request.requestId = requestDeposit(delegate, vault, assets, owner);
 
     emit RequestDeposit(claimToken, tokenId, vault, request.owner, assets, msg.sender);
   }
@@ -218,7 +218,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
 
     address payable delegate = DELEGATE.deploy(keccak256(abi.encode(claimToken, tokenId)));
 
-    request.requestId = requestRedeem(delegate, vault, shares, receiver);
+    request.requestId = requestRedeem(delegate, vault, shares, owner);
 
     emit RequestRedeem(claimToken, tokenId, vault, request.owner, shares, msg.sender);
   }
