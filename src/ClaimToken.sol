@@ -2,12 +2,14 @@
 pragma solidity ^0.8.28;
 
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import { IERC6909TokenSupply } from "@openzeppelin/contracts/interfaces/IERC6909.sol";
 import { ERC6909TokenSupply } from "@openzeppelin/contracts/token/ERC6909/extensions/ERC6909TokenSupply.sol";
 import { IERC6909Metadata } from "@openzeppelin/contracts/interfaces/IERC6909.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
+import { MetadataReaderLib } from "solady/utils/MetadataReaderLib.sol";
 
 contract ClaimToken is ERC6909TokenSupply, IERC6909Metadata {
   using Strings for uint256;
@@ -16,8 +18,11 @@ contract ClaimToken is ERC6909TokenSupply, IERC6909Metadata {
 
   function supportsInterface(
     bytes4 interfaceId
-  ) public view virtual override(ERC6909TokenSupply, IERC165) returns (bool) {
-    return interfaceId == type(IERC6909Metadata).interfaceId || super.supportsInterface(interfaceId);
+  ) public view virtual override(ERC6909TokenSupply, IERC165) returns (bool supported) {
+    supported =
+      interfaceId == type(IERC6909Metadata).interfaceId ||
+      interfaceId == type(IERC6909TokenSupply).interfaceId ||
+      super.supportsInterface(interfaceId);
   }
 
   function args() private view returns (address, address, uint8) {
@@ -33,20 +38,43 @@ contract ClaimToken is ERC6909TokenSupply, IERC6909Metadata {
   }
 
   function name(uint256 id) external view returns (string memory) {
-    (, , uint8 kind) = args();
-    return string.concat(kind == 0 ? "ERC7540 Deposit Claim" : "ERC7540 Redeem Claim", " #", id.toString());
+    (, address vault_, uint8 kind) = args();
+
+    string memory name_ = MetadataReaderLib.readName(vault_);
+
+    if (bytes(name_).length == 0) {
+      name_ = "ERC7540";
+    }
+
+    return string.concat(name_, kind == 0 ? " (Deposit Claim #" : " (Redeem Claim #", id.toString(), ")");
   }
 
   function symbol(uint256 id) external view returns (string memory) {
-    (, , uint8 kind) = args();
-    return string.concat(kind == 0 ? "ERC7540DCLAIM" : "ERC7540RCLAIM", " #", id.toString());
+    (, address vault_, ) = args();
+
+    string memory symbol_ = MetadataReaderLib.readSymbol(vault_);
+
+    if (bytes(symbol_).length == 0) {
+      symbol_ = "CLAIM";
+    }
+
+    return string.concat(symbol_, "-", id.toString());
   }
 
   function decimals(uint256) external view returns (uint8) {
-    (, address v, uint8 k) = args();
+    (, address vault_, uint8 kind_) = args();
 
-    // for deposit tokens, claim represents assets; for redeem tokens, shares.
-    return k == 0 ? IERC20Metadata(IERC4626(v).asset()).decimals() : IERC20Metadata(v).decimals();
+    if (kind_ == 0) {
+      // for deposit tokens, claim represents assets
+      return MetadataReaderLib.readDecimals(IERC4626(vault_).asset());
+    }
+
+    // for redeem tokens, claim represents shares.
+    return MetadataReaderLib.readDecimals(vault_);
+  }
+
+  function current() external view returns (uint256) {
+    return _tokenId;
   }
 
   function next() external returns (uint256 tokenId) {

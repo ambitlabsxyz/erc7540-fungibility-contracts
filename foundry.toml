@@ -12,7 +12,8 @@ silence_warnings = true
 remappings = [
     "src/=src/",
     "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
-    "@ambitlabs/delegate-contracts/=lib/delegate-contracts/src/" 
+    "@ambitlabs/delegate-contracts/=lib/delegate-contracts/src/",
+    "solady/=lib/solady/src"
 ] 
 fs_permissions = [
   { access = "read-write", path = "deployments" }

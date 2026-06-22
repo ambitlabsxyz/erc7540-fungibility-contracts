@@ -320,7 +320,7 @@ interface IERC7540Fungibility {
    *         ERC-6909 supply.
    *
    * @dev    Only permitted while the request is fully pending and the
-   *         original holder still owns the entire ERC-6909 supply for
+   *         owner still owns the entire ERC-6909 supply for
    *         (claimToken, tokenId). The underlying vault MUST implement
    *         the appropriate ERC-8161 transferable extension.
    *
@@ -328,9 +328,10 @@ interface IERC7540Fungibility {
    *
    * @param  claimToken the `ClaimToken` contract for the wrapped request
    * @param  tokenId    the ERC-6909 token id of the wrapped request
+   * @param  owner      the owner to cancel the claim from
    * @param  controller the address that becomes the new controller of the vault request
    */
-  function cancel(address claimToken, uint256 tokenId, address controller) external;
+  function cancel(address claimToken, uint256 tokenId, address owner, address controller) external;
 
   /**
    * @notice Claims `shares` of a fulfilled wrapped request, burning the
@@ -381,8 +382,5 @@ interface IERC7540Fungibility {
   // Metadata
   // =========================================================================
 
-  function metadata(
-    address claimToken,
-    uint256 tokenId
-  ) external view returns (address owner, address vault, uint256 requestId);
+  function metadata(address claimToken, uint256 tokenId) external view returns (address vault, uint256 requestId);
 }
