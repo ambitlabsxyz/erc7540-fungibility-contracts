@@ -10,6 +10,7 @@ import { IERC7540Deposit } from "./interfaces/IERC7540Deposit.sol";
 import { IERC7540Redeem } from "./interfaces/IERC7540Redeem.sol";
 import { IERC8161DepositTransferable } from "./interfaces/IERC8161DepositTransferable.sol";
 import { IERC8161RedeemTransferable } from "./interfaces/IERC8161RedeemTransferable.sol";
+import { IERC7575 } from "./interfaces/IERC7575.sol";
 import { Delegate } from "@ambitlabs/delegate-contracts/Delegate.sol";
 import { DelegateLib } from "@ambitlabs/delegate-contracts/DelegateLib.sol";
 import { IERC7540Fungibility } from "./interfaces/IERC7540Fungibility.sol";
@@ -234,9 +235,14 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     uint256 shares,
     address owner
   ) private returns (uint256 requestId) {
-    IERC20(vault).safeTransferFrom(owner, delegate, shares);
+    // the vault could be IERC7575 which has an external share token so we support that
+    address shareToken = ERC165Checker.supportsInterface(vault, type(IERC7575).interfaceId) == false
+      ? vault
+      : IERC7575(vault).share();
 
-    Delegate(delegate).safeApprove(address(vault), vault, shares);
+    IERC20(shareToken).safeTransferFrom(owner, delegate, shares);
+
+    Delegate(delegate).safeApprove(shareToken, vault, shares);
 
     bytes memory result = Delegate(delegate).call(
       vault,
