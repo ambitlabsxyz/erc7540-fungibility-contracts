@@ -148,7 +148,7 @@ interface IERC7540Fungibility {
    *
    * @return claimToken the deterministic (vault, deposit) `ClaimToken` address
    */
-  function predictDepositClaimToken(address vault) external view returns (address claimToken);
+  function depositClaimToken(address vault) external view returns (address claimToken);
 
   /**
    * @notice Computes the deterministic address of the (vault, redeem)
@@ -164,7 +164,7 @@ interface IERC7540Fungibility {
    *
    * @return claimToken the deterministic (vault, redeem) `ClaimToken` address
    */
-  function predictRedeemClaimToken(address vault) external view returns (address claimToken);
+  function redeemClaimToken(address vault) external view returns (address claimToken);
 
   /**
    * @notice Deploys the (vault, deposit) `ClaimToken` for `vault`, or returns
@@ -382,5 +382,5 @@ interface IERC7540Fungibility {
   // Metadata
   // =========================================================================
 
-  function metadata(address claimToken, uint256 tokenId) external view returns (address vault, uint256 requestId);
+  function requests(address claimToken, uint256 tokenId) external view returns (address vault, uint256 requestId);
 }

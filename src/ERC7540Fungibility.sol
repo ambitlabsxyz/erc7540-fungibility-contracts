@@ -31,7 +31,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     uint256 requestId;
   }
 
-  mapping(address claimToken => mapping(uint256 tokenId => Request)) requests;
+  mapping(address claimToken => mapping(uint256 tokenId => Request)) public requests;
 
   constructor(address delegate, address claimToken) {
     require(delegate != address(0), ERC7540FungibilityInvalidInput());
@@ -58,7 +58,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
   // =========================================================================
 
   /// @inheritdoc IERC7540Fungibility
-  function predictDepositClaimToken(address vault) public view returns (address claimToken) {
+  function depositClaimToken(address vault) public view returns (address claimToken) {
     claimToken = Clones.predictDeterministicAddressWithImmutableArgs(
       CLAIM_TOKEN,
       abi.encode(address(this), vault, 0),
@@ -68,7 +68,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
   }
 
   /// @inheritdoc IERC7540Fungibility
-  function predictRedeemClaimToken(address vault) public view returns (address claimToken) {
+  function redeemClaimToken(address vault) public view returns (address claimToken) {
     claimToken = Clones.predictDeterministicAddressWithImmutableArgs(
       CLAIM_TOKEN,
       abi.encode(address(this), vault, 1),
@@ -79,7 +79,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
 
   /// @inheritdoc IERC7540Fungibility
   function initializeDepositClaimToken(address vault) public returns (address claimToken) {
-    claimToken = predictDepositClaimToken(vault);
+    claimToken = depositClaimToken(vault);
     if (claimToken.code.length == 0) {
       claimToken = Clones.cloneDeterministicWithImmutableArgs(CLAIM_TOKEN, abi.encode(address(this), vault, 0), 0);
     }
@@ -87,7 +87,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
 
   /// @inheritdoc IERC7540Fungibility
   function initializeRedeemClaimToken(address vault) public returns (address claimToken) {
-    claimToken = predictRedeemClaimToken(vault);
+    claimToken = redeemClaimToken(vault);
     if (claimToken.code.length == 0) {
       claimToken = Clones.cloneDeterministicWithImmutableArgs(CLAIM_TOKEN, abi.encode(address(this), vault, 1), 0);
     }
@@ -276,7 +276,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
 
     address payable delegate = DELEGATE.predict(keccak256(abi.encode(claimToken, tokenId)));
 
-    if (predictDepositClaimToken(request.vault) == claimToken) {
+    if (depositClaimToken(request.vault) == claimToken) {
       requireInterface(request.vault, type(IERC8161DepositTransferable).interfaceId);
 
       // all shares must still be pending so we avoid partial transfers
@@ -316,7 +316,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
       return false;
     }
     address delegate = DELEGATE.predict(keccak256(abi.encode(claimToken, tokenId)));
-    if (predictDepositClaimToken(request.vault) == claimToken) {
+    if (depositClaimToken(request.vault) == claimToken) {
       return IERC7540Deposit(request.vault).pendingDepositRequest(request.requestId, delegate) > 0;
     }
     return IERC7540Redeem(request.vault).pendingRedeemRequest(request.requestId, delegate) > 0;
@@ -352,7 +352,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     }
 
     bytes memory result;
-    if (claimToken == predictDepositClaimToken(vault)) {
+    if (claimToken == depositClaimToken(vault)) {
       result = Delegate(delegate).call(vault, abi.encodeCall(IERC7540Deposit.deposit, (shares, receiver, delegate)));
     } else {
       result = Delegate(delegate).call(vault, abi.encodeCall(IERC4626.redeem, (shares, receiver, delegate)));
@@ -383,13 +383,5 @@ contract ERC7540Fungibility is IERC7540Fungibility {
       ERC165Checker.supportsInterface(addr, interfaceId),
       ERC7540FungibilityInterfaceNotSupported(addr, interfaceId)
     );
-  }
-
-  // =========================================================================
-  // Metadata
-  // =========================================================================
-  function metadata(address claimToken, uint256 tokenId) external view returns (address vault, uint256 requestId) {
-    Request storage request = requests[claimToken][tokenId];
-    return (request.vault, request.requestId);
   }
 }
