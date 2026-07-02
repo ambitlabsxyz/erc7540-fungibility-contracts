@@ -32,9 +32,6 @@ interface IERC7540Fungibility {
   ///         split or the underlying vault request is no longer fully pending.
   error ERC7540FungibilityCancelNotAllowed(address claimToken, uint256 tokenId);
 
-  /// @notice Thrown when a redeem is attempted while the underlying vault request is still pending.
-  error ERC7540FungibilityPending(address claimToken, uint256 tokenId);
-
   /// @notice Thrown when a target contract does not support the required ERC-165 interface.
   error ERC7540FungibilityInterfaceNotSupported(address addr, bytes4 interfaceId);
 
@@ -78,6 +75,17 @@ interface IERC7540Fungibility {
     address caller
   );
 
+  /// @notice Emitted when a wrapped, fulfilled request is partially or fully claimed against its vault.
+  event Deposit(
+    address indexed claimToken,
+    uint256 indexed tokenId,
+    address indexed owner,
+    address receiver,
+    uint256 shares,
+    uint256 assets,
+    address caller
+  );
+
   /// @notice Emitted when a new redeem request is originated and wrapped into ERC-6909 claim tokens.
   event RequestRedeem(
     address indexed claimToken,
@@ -88,22 +96,23 @@ interface IERC7540Fungibility {
     address caller
   );
 
-  /// @notice Emitted when a wrapped pending request is cancelled and its vault control returned to a chosen controller.
-  event Cancel(
-    address indexed claimToken,
-    uint256 indexed tokenId,
-    address indexed owner,
-    address controller,
-    address caller
-  );
-
   /// @notice Emitted when a wrapped, fulfilled request is partially or fully claimed against its vault.
   event Redeem(
     address indexed claimToken,
     uint256 indexed tokenId,
     address indexed owner,
     address receiver,
+    uint256 shares,
     uint256 assets,
+    address caller
+  );
+
+  /// @notice Emitted when a wrapped pending request is cancelled and its vault control returned to a chosen controller.
+  event Cancel(
+    address indexed claimToken,
+    uint256 indexed tokenId,
+    address indexed owner,
+    address controller,
     address caller
   );
 
@@ -123,16 +132,6 @@ interface IERC7540Fungibility {
   // =========================================================================
   // State
   // =========================================================================
-
-  /**
-   * @notice Returns whether the underlying vault request for the given
-   *         (claimToken, tokenId) is still pending fulfilment by the vault.
-   *
-   * @dev    Returns false if the request is unknown, the supply has been
-   *         fully burned, or the vault reports zero pending balance for
-   *         the per-token delegate.
-   */
-  function pending(address claimToken, uint256 tokenId) external view returns (bool);
 
   /**
    * @notice Computes the deterministic address of the (vault, deposit)
@@ -383,4 +382,6 @@ interface IERC7540Fungibility {
   // =========================================================================
 
   function requests(address claimToken, uint256 tokenId) external view returns (address vault, uint256 requestId);
+
+  function delegateOf(address claimToken, uint256 tokenId) external view returns (address delegate);
 }

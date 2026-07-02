@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import { ERC165Checker } from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import { IERC6909TokenSupply } from "@openzeppelin/contracts/interfaces/IERC6909.sol";
 import { ERC6909TokenSupply } from "@openzeppelin/contracts/token/ERC6909/extensions/ERC6909TokenSupply.sol";
@@ -10,6 +11,7 @@ import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 import { MetadataReaderLib } from "solady/utils/MetadataReaderLib.sol";
+import { IERC7575 } from "./interfaces/IERC7575.sol";
 
 contract ClaimToken is ERC6909TokenSupply, IERC6909Metadata {
   using Strings for uint256;
@@ -37,10 +39,18 @@ contract ClaimToken is ERC6909TokenSupply, IERC6909Metadata {
     (, vault_, ) = args();
   }
 
-  function name(uint256 id) external view returns (string memory) {
-    (, address vault_, uint8 kind) = args();
+  function share() public view returns (address share_) {
+    (, address vault_, ) = args();
 
-    string memory name_ = MetadataReaderLib.readName(vault_);
+    share_ = ERC165Checker.supportsInterface(vault_, type(IERC7575).interfaceId) == false
+      ? vault_
+      : IERC7575(vault_).share();
+  }
+
+  function name(uint256 id) external view returns (string memory) {
+    (, , uint8 kind) = args();
+
+    string memory name_ = MetadataReaderLib.readName(share());
 
     if (bytes(name_).length == 0) {
       name_ = "ERC7540";
@@ -50,9 +60,7 @@ contract ClaimToken is ERC6909TokenSupply, IERC6909Metadata {
   }
 
   function symbol(uint256 id) external view returns (string memory) {
-    (, address vault_, ) = args();
-
-    string memory symbol_ = MetadataReaderLib.readSymbol(vault_);
+    string memory symbol_ = MetadataReaderLib.readSymbol(share());
 
     if (bytes(symbol_).length == 0) {
       symbol_ = "CLAIM";
@@ -70,7 +78,7 @@ contract ClaimToken is ERC6909TokenSupply, IERC6909Metadata {
     }
 
     // for redeem tokens, claim represents shares.
-    return MetadataReaderLib.readDecimals(vault_);
+    return MetadataReaderLib.readDecimals(share());
   }
 
   function current() external view returns (uint256) {
