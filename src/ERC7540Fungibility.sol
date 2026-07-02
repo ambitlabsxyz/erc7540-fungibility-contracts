@@ -124,6 +124,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     emit TransferDeposit(claimToken, tokenId, vault, receiver, requestId, msg.sender);
   }
 
+  /// @inheritdoc IERC7540Fungibility
   function pendingDepositRequest(address claimToken, uint256 tokenId) external view returns (uint256 assets) {
     Request storage request = requests[claimToken][tokenId];
     requireInterface(request.vault, type(IERC7540Deposit).interfaceId);
@@ -131,6 +132,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     assets = IERC7540Deposit(request.vault).pendingDepositRequest(request.requestId, delegateOf(claimToken, tokenId));
   }
 
+  /// @inheritdoc IERC7540Fungibility
   function claimableDepositRequest(address claimToken, uint256 tokenId) external view returns (uint256 assets) {
     Request storage request = requests[claimToken][tokenId];
     requireInterface(request.vault, type(IERC7540Deposit).interfaceId);
@@ -184,14 +186,17 @@ contract ERC7540Fungibility is IERC7540Fungibility {
 
     tokenId = ClaimToken(claimToken).next();
 
-    Request storage request = requests[claimToken][tokenId];
-    request.vault = vault;
-
-    ClaimToken(claimToken).mint(receiver, tokenId, assets);
-
     address payable delegate = DELEGATE.deploy(keccak256(abi.encode(claimToken, tokenId)));
 
-    request.requestId = requestDeposit(delegate, vault, assets, owner);
+    // Interactions first: pull assets and open the vault request
+    uint256 requestId = requestDeposit(delegate, vault, assets, owner);
+
+    // Effects last: only now record the request and mint the claim tokens
+    Request storage request = requests[claimToken][tokenId];
+    request.vault = vault;
+    request.requestId = requestId;
+
+    ClaimToken(claimToken).mint(receiver, tokenId, assets);
 
     emit RequestDeposit(claimToken, tokenId, vault, receiver, assets, msg.sender);
   }
@@ -231,14 +236,17 @@ contract ERC7540Fungibility is IERC7540Fungibility {
 
     tokenId = ClaimToken(claimToken).next();
 
-    Request storage request = requests[claimToken][tokenId];
-    request.vault = vault;
-
-    ClaimToken(claimToken).mint(receiver, tokenId, shares);
-
     address payable delegate = DELEGATE.deploy(keccak256(abi.encode(claimToken, tokenId)));
 
-    request.requestId = requestRedeem(delegate, vault, shares, owner);
+    // Interactions first: pull assets and open the vault request
+    uint256 requestId = requestRedeem(delegate, vault, shares, owner);
+
+    // Effects last: only now record the request and mint the claim tokens
+    Request storage request = requests[claimToken][tokenId];
+    request.vault = vault;
+    request.requestId = requestId;
+
+    ClaimToken(claimToken).mint(receiver, tokenId, shares);
 
     emit RequestRedeem(claimToken, tokenId, vault, receiver, shares, msg.sender);
   }
@@ -266,6 +274,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     requestId = abi.decode(result, (uint256));
   }
 
+  /// @inheritdoc IERC7540Fungibility
   function pendingRedeemRequest(address claimToken, uint256 tokenId) external view returns (uint256 shares) {
     Request storage request = requests[claimToken][tokenId];
     requireInterface(request.vault, type(IERC7540Redeem).interfaceId);
@@ -273,6 +282,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     shares = IERC7540Redeem(request.vault).pendingRedeemRequest(request.requestId, delegateOf(claimToken, tokenId));
   }
 
+  /// @inheritdoc IERC7540Fungibility
   function claimableRedeemRequest(address claimToken, uint256 tokenId) external view returns (uint256 shares) {
     Request storage request = requests[claimToken][tokenId];
     requireInterface(request.vault, type(IERC7540Redeem).interfaceId);
@@ -378,6 +388,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     emit Redeem(claimToken, tokenId, owner, receiver, shares, assets, msg.sender);
   }
 
+  /// @inheritdoc IERC7540Fungibility
   function deposit(
     address claimToken,
     uint256 tokenId,
@@ -393,7 +404,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
 
     bytes memory result = Delegate(delegate).call(
       vault,
-      abi.encodeCall(IERC7540Deposit.deposit, (shares, receiver, delegate))
+      abi.encodeCall(IERC7540Deposit.deposit, (assets, receiver, delegate))
     );
     shares = abi.decode(result, (uint256));
 

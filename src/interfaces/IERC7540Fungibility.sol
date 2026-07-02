@@ -310,6 +310,70 @@ interface IERC7540Fungibility {
   ) external returns (address claimToken, uint256 tokenId);
 
   // =========================================================================
+  // Request status
+  // =========================================================================
+
+  /**
+   * @notice Returns the amount of assets still pending on the vault for a
+   *         wrapped deposit request.
+   *
+   * @dev    Reads `pendingDepositRequest` on the underlying vault for the
+   *         delegate backing (claimToken, tokenId). `claimToken` MUST be a
+   *         (vault, deposit) `ClaimToken` whose vault implements `IERC7540Deposit`.
+   *
+   * @param  claimToken the deposit `ClaimToken` contract for the wrapped request
+   * @param  tokenId    the ERC-6909 token id of the wrapped request
+   *
+   * @return assets the amount of underlying assets still pending on the vault
+   */
+  function pendingDepositRequest(address claimToken, uint256 tokenId) external view returns (uint256 assets);
+
+  /**
+   * @notice Returns the amount of assets claimable on the vault for a wrapped
+   *         deposit request.
+   *
+   * @dev    Reads `claimableDepositRequest` on the underlying vault for the
+   *         delegate backing (claimToken, tokenId). `claimToken` MUST be a
+   *         (vault, deposit) `ClaimToken` whose vault implements `IERC7540Deposit`.
+   *
+   * @param  claimToken the deposit `ClaimToken` contract for the wrapped request
+   * @param  tokenId    the ERC-6909 token id of the wrapped request
+   *
+   * @return assets the amount of underlying assets now claimable on the vault
+   */
+  function claimableDepositRequest(address claimToken, uint256 tokenId) external view returns (uint256 assets);
+
+  /**
+   * @notice Returns the amount of shares still pending on the vault for a
+   *         wrapped redeem request.
+   *
+   * @dev    Reads `pendingRedeemRequest` on the underlying vault for the
+   *         delegate backing (claimToken, tokenId). `claimToken` MUST be a
+   *         (vault, redeem) `ClaimToken` whose vault implements `IERC7540Redeem`.
+   *
+   * @param  claimToken the redeem `ClaimToken` contract for the wrapped request
+   * @param  tokenId    the ERC-6909 token id of the wrapped request
+   *
+   * @return shares the amount of vault shares still pending on the vault
+   */
+  function pendingRedeemRequest(address claimToken, uint256 tokenId) external view returns (uint256 shares);
+
+  /**
+   * @notice Returns the amount of shares claimable on the vault for a wrapped
+   *         redeem request.
+   *
+   * @dev    Reads `claimableRedeemRequest` on the underlying vault for the
+   *         delegate backing (claimToken, tokenId). `claimToken` MUST be a
+   *         (vault, redeem) `ClaimToken` whose vault implements `IERC7540Redeem`.
+   *
+   * @param  claimToken the redeem `ClaimToken` contract for the wrapped request
+   * @param  tokenId    the ERC-6909 token id of the wrapped request
+   *
+   * @return shares the amount of vault shares now claimable on the vault
+   */
+  function claimableRedeemRequest(address claimToken, uint256 tokenId) external view returns (uint256 shares);
+
+  // =========================================================================
   // Exit
   // =========================================================================
 
@@ -333,25 +397,52 @@ interface IERC7540Fungibility {
   function cancel(address claimToken, uint256 tokenId, address owner, address controller) external;
 
   /**
-   * @notice Claims `shares` of a fulfilled wrapped request, burning the
-   *         corresponding ERC-6909 balance and delivering the vault output
-   *         to `receiver`.
+   * @notice Claims `assets` of a fulfilled wrapped deposit request, burning the
+   *         corresponding ERC-6909 balance and delivering the resulting vault
+   *         shares to `receiver`.
    *
-   * @dev    The underlying vault request MUST no longer be pending. For
-   *         wrapped deposit requests this calls `deposit` on the vault and
-   *         delivers vault shares; for wrapped redeem requests this calls
-   *         `redeem` on the vault and delivers underlying assets. Partial
-   *         claims are supported.
+   * @dev    The underlying vault deposit request MUST no longer be pending. This
+   *         calls `deposit` on the vault through the per-token delegate and
+   *         delivers vault shares to `receiver`. `claimToken` MUST be the
+   *         (vault, deposit) `ClaimToken`. Partial claims are supported.
    *
    *         msg.sender MUST be `owner` or its operator on this contract.
    *
-   * @param  claimToken the `ClaimToken` contract for the wrapped request
+   * @param  claimToken the deposit `ClaimToken` contract for the wrapped request
    * @param  tokenId    the ERC-6909 token id
-   * @param  shares     the amount of ERC-6909 balance to burn and claim against
-   * @param  receiver   the recipient of the vault output
+   * @param  assets     the amount of ERC-6909 balance to burn and claim against
+   * @param  receiver   the recipient of the vault shares
    * @param  owner      the holder of the ERC-6909 balance being claimed
    *
-   * @return assets the amount of vault output delivered to `receiver`
+   * @return shares the amount of vault shares delivered to `receiver`
+   */
+  function deposit(
+    address claimToken,
+    uint256 tokenId,
+    uint256 assets,
+    address receiver,
+    address owner
+  ) external returns (uint256 shares);
+
+  /**
+   * @notice Claims `shares` of a fulfilled wrapped redeem request, burning the
+   *         corresponding ERC-6909 balance and delivering the resulting vault
+   *         assets to `receiver`.
+   *
+   * @dev    The underlying vault redeem request MUST no longer be pending. This
+   *         calls `redeem` on the vault through the per-token delegate and
+   *         delivers underlying assets to `receiver`. `claimToken` MUST be the
+   *         (vault, redeem) `ClaimToken`. Partial claims are supported.
+   *
+   *         msg.sender MUST be `owner` or its operator on this contract.
+   *
+   * @param  claimToken the redeem `ClaimToken` contract for the wrapped request
+   * @param  tokenId    the ERC-6909 token id
+   * @param  shares     the amount of ERC-6909 balance to burn and claim against
+   * @param  receiver   the recipient of the vault assets
+   * @param  owner      the holder of the ERC-6909 balance being claimed
+   *
+   * @return assets the amount of vault assets delivered to `receiver`
    */
   function redeem(
     address claimToken,
