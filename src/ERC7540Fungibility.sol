@@ -436,6 +436,6 @@ contract ERC7540Fungibility is IERC7540Fungibility {
 
   /// @inheritdoc IERC7540Fungibility
   function delegateOf(address claimToken, uint256 tokenId) public view returns (address delegate) {
-    delegate = DELEGATE.predict(keccak256(abi.encode(claimToken, tokenId)));
+    delegate = DELEGATE.predict(keccak256(abi.encode(claimToken, tokenId)), address(this));
   }
 }
