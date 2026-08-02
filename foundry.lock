@@ -1,6 +1,9 @@
 {
   "lib/delegate-contracts": {
-    "rev": "c06d00cd14c21c85a2abd21a3a6aa50e48c85006"
+    "branch": {
+      "name": "main",
+      "rev": "51d5521ffc44c0c7dc8f080e05b03a734d6d3fd1"
+    }
   },
   "lib\\forge-std": {
     "tag": {
