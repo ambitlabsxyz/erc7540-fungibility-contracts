@@ -117,7 +117,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
 
     ClaimToken(claimToken).mint(receiver, tokenId, assets);
 
-    address payable delegate = DELEGATE.deploy(keccak256(abi.encode(claimToken, tokenId)));
+    address payable delegate = DELEGATE.deploy(delegateSalt(claimToken, tokenId));
 
     IERC8161DepositTransferable(vault).transferDepositRequest(requestId, controller, delegate);
 
@@ -164,7 +164,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
 
     ClaimToken(claimToken).mint(receiver, tokenId, shares);
 
-    address payable delegate = DELEGATE.deploy(keccak256(abi.encode(claimToken, tokenId)));
+    address payable delegate = DELEGATE.deploy(delegateSalt(claimToken, tokenId));
 
     IERC8161RedeemTransferable(vault).transferRedeemRequest(requestId, controller, delegate);
 
@@ -186,7 +186,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
 
     tokenId = ClaimToken(claimToken).next();
 
-    address payable delegate = DELEGATE.deploy(keccak256(abi.encode(claimToken, tokenId)));
+    address payable delegate = DELEGATE.deploy(delegateSalt(claimToken, tokenId));
 
     // Interactions first: pull assets and open the vault request
     uint256 requestId = requestDeposit(delegate, vault, assets, owner);
@@ -236,7 +236,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
 
     tokenId = ClaimToken(claimToken).next();
 
-    address payable delegate = DELEGATE.deploy(keccak256(abi.encode(claimToken, tokenId)));
+    address payable delegate = DELEGATE.deploy(delegateSalt(claimToken, tokenId));
 
     // Interactions first: pull assets and open the vault request
     uint256 requestId = requestRedeem(delegate, vault, shares, owner);
@@ -436,6 +436,10 @@ contract ERC7540Fungibility is IERC7540Fungibility {
 
   /// @inheritdoc IERC7540Fungibility
   function delegateOf(address claimToken, uint256 tokenId) public view returns (address delegate) {
-    delegate = DELEGATE.predict(keccak256(abi.encode(claimToken, tokenId)), address(this));
+    delegate = DELEGATE.predict(delegateSalt(claimToken, tokenId), address(this));
+  }
+
+  function delegateSalt(address claimToken, uint256 tokenId) private pure returns (bytes32) {
+    return keccak256(abi.encode(claimToken, tokenId));
   }
 }
