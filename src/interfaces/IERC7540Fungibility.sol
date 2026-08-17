@@ -50,7 +50,7 @@ interface IERC7540Fungibility {
     address indexed claimToken,
     uint256 indexed tokenId,
     address indexed vault,
-    address owner,
+    address receiver,
     uint256 requestId,
     address caller
   );
@@ -60,7 +60,7 @@ interface IERC7540Fungibility {
     address indexed claimToken,
     uint256 indexed tokenId,
     address indexed vault,
-    address owner,
+    address receiver,
     uint256 requestId,
     address caller
   );
@@ -70,7 +70,7 @@ interface IERC7540Fungibility {
     address indexed claimToken,
     uint256 indexed tokenId,
     address indexed vault,
-    address owner,
+    address receiver,
     uint256 assets,
     address caller
   );
@@ -91,7 +91,7 @@ interface IERC7540Fungibility {
     address indexed claimToken,
     uint256 indexed tokenId,
     address indexed vault,
-    address owner,
+    address receiver,
     uint256 shares,
     address caller
   );
