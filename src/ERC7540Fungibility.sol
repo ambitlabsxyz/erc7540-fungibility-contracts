@@ -104,22 +104,22 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     requireInterface(vault, type(IERC8161DepositTransferable).interfaceId);
     require(receiver != address(0), ERC7540FungibilityInvalidInput());
 
-    uint256 assets = IERC7540Deposit(vault).pendingDepositRequest(requestId, controller);
-    require(assets > 0, ERC7540FungibilityInvalidInput());
-
     claimToken = initializeDepositClaimToken(vault);
 
     tokenId = ClaimToken(claimToken).next();
+
+    address payable delegate = DELEGATE.deploy(delegateSalt(claimToken, tokenId));
+
+    IERC8161DepositTransferable(vault).transferDepositRequest(requestId, controller, delegate);
+
+    uint256 assets = IERC7540Deposit(vault).pendingDepositRequest(requestId, delegate);
+    require(assets > 0, ERC7540FungibilityInvalidInput());
 
     Request storage request = requests[claimToken][tokenId];
     request.vault = vault;
     request.requestId = requestId;
 
     ClaimToken(claimToken).mint(receiver, tokenId, assets);
-
-    address payable delegate = DELEGATE.deploy(delegateSalt(claimToken, tokenId));
-
-    IERC8161DepositTransferable(vault).transferDepositRequest(requestId, controller, delegate);
 
     emit TransferDeposit(claimToken, tokenId, vault, receiver, requestId, msg.sender);
   }
@@ -151,22 +151,22 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     requireInterface(vault, type(IERC8161RedeemTransferable).interfaceId);
     require(receiver != address(0), ERC7540FungibilityInvalidInput());
 
-    uint256 shares = IERC7540Redeem(vault).pendingRedeemRequest(requestId, controller);
-    require(shares > 0, ERC7540FungibilityInvalidInput());
-
     claimToken = initializeRedeemClaimToken(vault);
 
     tokenId = ClaimToken(claimToken).next();
+
+    address payable delegate = DELEGATE.deploy(delegateSalt(claimToken, tokenId));
+
+    IERC8161RedeemTransferable(vault).transferRedeemRequest(requestId, controller, delegate);
+
+    uint256 shares = IERC7540Redeem(vault).pendingRedeemRequest(requestId, delegate);
+    require(shares > 0, ERC7540FungibilityInvalidInput());
 
     Request storage request = requests[claimToken][tokenId];
     request.vault = vault;
     request.requestId = requestId;
 
     ClaimToken(claimToken).mint(receiver, tokenId, shares);
-
-    address payable delegate = DELEGATE.deploy(delegateSalt(claimToken, tokenId));
-
-    IERC8161RedeemTransferable(vault).transferRedeemRequest(requestId, controller, delegate);
 
     emit TransferRedeem(claimToken, tokenId, vault, receiver, requestId, msg.sender);
   }
