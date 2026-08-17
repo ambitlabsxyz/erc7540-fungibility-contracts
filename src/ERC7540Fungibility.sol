@@ -299,16 +299,19 @@ contract ERC7540Fungibility is IERC7540Fungibility {
   ) external ownerOrOperator(owner) {
     require(controller != address(0), ERC7540FungibilityInvalidInput());
 
-    Request storage request = requests[claimToken][tokenId];
+    Request memory request = requests[claimToken][tokenId];
     require(request.vault != address(0), ERC7540FungibilityTokenNotFound(claimToken, tokenId));
 
-    // only cancel if the
     uint256 totalSupply = ClaimToken(claimToken).totalSupply(tokenId);
     require(totalSupply > 0, ERC7540FungibilityCancelNotAllowed(claimToken, tokenId));
 
     // can only cancel if the owner still holds all of the supply
     uint256 balance = ClaimToken(claimToken).balanceOf(owner, tokenId);
     require(balance == totalSupply, ERC7540FungibilityCancelNotAllowed(claimToken, tokenId));
+
+    emit Cancel(claimToken, tokenId, owner, controller, msg.sender);
+
+    delete requests[claimToken][tokenId];
 
     ClaimToken(claimToken).burn(owner, tokenId, balance);
 
@@ -337,10 +340,6 @@ contract ERC7540Fungibility is IERC7540Fungibility {
         abi.encodeCall(IERC8161RedeemTransferable.transferRedeemRequest, (request.requestId, delegate, controller))
       );
     }
-
-    emit Cancel(claimToken, tokenId, owner, controller, msg.sender);
-
-    delete requests[claimToken][tokenId];
   }
 
   function claim(
