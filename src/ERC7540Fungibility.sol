@@ -104,22 +104,22 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     requireInterface(vault, type(IERC8161DepositTransferable).interfaceId);
     require(receiver != address(0), ERC7540FungibilityInvalidInput());
 
-    uint256 assets = IERC7540Deposit(vault).pendingDepositRequest(requestId, controller);
-    require(assets > 0, ERC7540FungibilityInvalidInput());
-
     claimToken = initializeDepositClaimToken(vault);
 
     tokenId = ClaimToken(claimToken).next();
+
+    address payable delegate = DELEGATE.deploy(delegateSalt(claimToken, tokenId));
+
+    IERC8161DepositTransferable(vault).transferDepositRequest(requestId, controller, delegate);
+
+    uint256 assets = IERC7540Deposit(vault).pendingDepositRequest(requestId, delegate);
+    require(assets > 0, ERC7540FungibilityInvalidInput());
 
     Request storage request = requests[claimToken][tokenId];
     request.vault = vault;
     request.requestId = requestId;
 
     ClaimToken(claimToken).mint(receiver, tokenId, assets);
-
-    address payable delegate = DELEGATE.deploy(keccak256(abi.encode(claimToken, tokenId)));
-
-    IERC8161DepositTransferable(vault).transferDepositRequest(requestId, controller, delegate);
 
     emit TransferDeposit(claimToken, tokenId, vault, receiver, requestId, msg.sender);
   }
@@ -151,22 +151,22 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     requireInterface(vault, type(IERC8161RedeemTransferable).interfaceId);
     require(receiver != address(0), ERC7540FungibilityInvalidInput());
 
-    uint256 shares = IERC7540Redeem(vault).pendingRedeemRequest(requestId, controller);
-    require(shares > 0, ERC7540FungibilityInvalidInput());
-
     claimToken = initializeRedeemClaimToken(vault);
 
     tokenId = ClaimToken(claimToken).next();
+
+    address payable delegate = DELEGATE.deploy(delegateSalt(claimToken, tokenId));
+
+    IERC8161RedeemTransferable(vault).transferRedeemRequest(requestId, controller, delegate);
+
+    uint256 shares = IERC7540Redeem(vault).pendingRedeemRequest(requestId, delegate);
+    require(shares > 0, ERC7540FungibilityInvalidInput());
 
     Request storage request = requests[claimToken][tokenId];
     request.vault = vault;
     request.requestId = requestId;
 
     ClaimToken(claimToken).mint(receiver, tokenId, shares);
-
-    address payable delegate = DELEGATE.deploy(keccak256(abi.encode(claimToken, tokenId)));
-
-    IERC8161RedeemTransferable(vault).transferRedeemRequest(requestId, controller, delegate);
 
     emit TransferRedeem(claimToken, tokenId, vault, receiver, requestId, msg.sender);
   }
@@ -186,7 +186,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
 
     tokenId = ClaimToken(claimToken).next();
 
-    address payable delegate = DELEGATE.deploy(keccak256(abi.encode(claimToken, tokenId)));
+    address payable delegate = DELEGATE.deploy(delegateSalt(claimToken, tokenId));
 
     // Interactions first: pull assets and open the vault request
     uint256 requestId = requestDeposit(delegate, vault, assets, owner);
@@ -236,7 +236,7 @@ contract ERC7540Fungibility is IERC7540Fungibility {
 
     tokenId = ClaimToken(claimToken).next();
 
-    address payable delegate = DELEGATE.deploy(keccak256(abi.encode(claimToken, tokenId)));
+    address payable delegate = DELEGATE.deploy(delegateSalt(claimToken, tokenId));
 
     // Interactions first: pull assets and open the vault request
     uint256 requestId = requestRedeem(delegate, vault, shares, owner);
@@ -299,16 +299,19 @@ contract ERC7540Fungibility is IERC7540Fungibility {
   ) external ownerOrOperator(owner) {
     require(controller != address(0), ERC7540FungibilityInvalidInput());
 
-    Request storage request = requests[claimToken][tokenId];
+    Request memory request = requests[claimToken][tokenId];
     require(request.vault != address(0), ERC7540FungibilityTokenNotFound(claimToken, tokenId));
 
-    // only cancel if the
     uint256 totalSupply = ClaimToken(claimToken).totalSupply(tokenId);
     require(totalSupply > 0, ERC7540FungibilityCancelNotAllowed(claimToken, tokenId));
 
     // can only cancel if the owner still holds all of the supply
     uint256 balance = ClaimToken(claimToken).balanceOf(owner, tokenId);
     require(balance == totalSupply, ERC7540FungibilityCancelNotAllowed(claimToken, tokenId));
+
+    emit Cancel(claimToken, tokenId, owner, controller, msg.sender);
+
+    delete requests[claimToken][tokenId];
 
     ClaimToken(claimToken).burn(owner, tokenId, balance);
 
@@ -337,10 +340,6 @@ contract ERC7540Fungibility is IERC7540Fungibility {
         abi.encodeCall(IERC8161RedeemTransferable.transferRedeemRequest, (request.requestId, delegate, controller))
       );
     }
-
-    emit Cancel(claimToken, tokenId, owner, controller, msg.sender);
-
-    delete requests[claimToken][tokenId];
   }
 
   function claim(
@@ -436,6 +435,10 @@ contract ERC7540Fungibility is IERC7540Fungibility {
 
   /// @inheritdoc IERC7540Fungibility
   function delegateOf(address claimToken, uint256 tokenId) public view returns (address delegate) {
-    delegate = DELEGATE.predict(keccak256(abi.encode(claimToken, tokenId)), address(this));
+    delegate = DELEGATE.predict(delegateSalt(claimToken, tokenId), address(this));
+  }
+
+  function delegateSalt(address claimToken, uint256 tokenId) private pure returns (bytes32) {
+    return keccak256(abi.encode(claimToken, tokenId));
   }
 }

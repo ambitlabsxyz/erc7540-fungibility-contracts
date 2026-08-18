@@ -13,6 +13,26 @@ pragma solidity ^0.8.28;
  *         Each tokenId on a ClaimToken is backed 1:1 by an isolated
  *         delegate clone that holds the underlying vault request as
  *         its sole controller.
+ *
+ *         Claim tokens are denominated in the request's INPUT units
+ *         (assets for deposits, shares for redeems) and are settled
+ *         first-come-first-served, not pro rata. A holder may burn
+ *         claims and settle against the delegate's claimable balance
+ *         at any time, including while the request is only partially
+ *         fulfilled. If a vault fulfils a single request in tranches
+ *         at different prices, the output a holder receives depends on
+ *         when they settle: settling early locks in the rate fulfilled
+ *         so far and forfeits exposure to later tranches, which may be
+ *         better or worse. Holders of the same tokenId therefore share
+ *         the input amount equally but do not have a guaranteed equal
+ *         share of the output. Vaults that fulfil each request at a
+ *         single price are unaffected.
+ *
+ *         Cancellation returns the entire pending balance to a single
+ *         controller and is only permitted when the caller holds the
+ *         full supply of the tokenId and nothing is yet claimable;
+ *         transferring any portion of a tokenId forfeits unilateral
+ *         cancellation until the full supply is reacquired.
  */
 interface IERC7540Fungibility {
   // =========================================================================
@@ -50,7 +70,7 @@ interface IERC7540Fungibility {
     address indexed claimToken,
     uint256 indexed tokenId,
     address indexed vault,
-    address owner,
+    address receiver,
     uint256 requestId,
     address caller
   );
@@ -60,7 +80,7 @@ interface IERC7540Fungibility {
     address indexed claimToken,
     uint256 indexed tokenId,
     address indexed vault,
-    address owner,
+    address receiver,
     uint256 requestId,
     address caller
   );
@@ -70,7 +90,7 @@ interface IERC7540Fungibility {
     address indexed claimToken,
     uint256 indexed tokenId,
     address indexed vault,
-    address owner,
+    address receiver,
     uint256 assets,
     address caller
   );
@@ -91,7 +111,7 @@ interface IERC7540Fungibility {
     address indexed claimToken,
     uint256 indexed tokenId,
     address indexed vault,
-    address owner,
+    address receiver,
     uint256 shares,
     address caller
   );

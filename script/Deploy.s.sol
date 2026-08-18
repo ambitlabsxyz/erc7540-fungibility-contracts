@@ -15,6 +15,7 @@ address constant DEPLOYER = 0x6B887caC2e0Ef29306E1B6F22E716796105137a0;
 // erc7540-fungibility-contracts.v1 = 0x8D383f607A6CE09462d6413EE430D42D758F551B
 // erc7540-fungibility-contracts.v2 = 0xF932B6378b1429afa8a83F6Ec18D1BB4b2d08786
 // erc7540-fungibility-contracts.v3 = 0x46262389Ff023fA481E5Df9426A2793Fc8A3d2Fa
+// erc7540-fungibility-contracts.v4 = 0x3519C244B59d18de8D2a468C8c5ad5d422A9eB4E
 
 interface ICreateX {
   function deployCreate3(bytes32 salt, bytes memory initCode) external payable returns (address newContract);
@@ -46,13 +47,14 @@ contract Deploy is Script {
   }
 
   // forge script .\script\Deploy.s.sol:Deploy --sig deploy --rpc-url plume --broadcast --account deployer --skip-simulation
+  // forge script .\script\Deploy.s.sol:Deploy --sig deploy --rpc-url hyperevm --broadcast --account deployer --skip-simulation
   function deploy() external {
     vm.startBroadcast();
 
     ICreateX createX = ICreateX(0xba5Ed099633D3B313e4D5F7bdc1305d3c28ba5Ed);
 
     // deploy the claim token
-    bytes32 salt = bytes32(abi.encodePacked(DEPLOYER, hex"00", bytes11(keccak256("erc7540-fungibility-contracts.v3"))));
+    bytes32 salt = bytes32(abi.encodePacked(DEPLOYER, hex"00", bytes11(keccak256("erc7540-fungibility-contracts.v4"))));
 
     bytes memory initCode = bytes.concat(
       type(ERC7540Fungibility).creationCode,
