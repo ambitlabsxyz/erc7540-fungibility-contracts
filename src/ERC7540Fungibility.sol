@@ -32,9 +32,10 @@ contract ERC7540Fungibility is IERC7540Fungibility {
   mapping(address claimToken => mapping(uint256 tokenId => Request)) public requests;
 
   constructor(address delegate, address claimToken) {
-    require(delegate != address(0), ERC7540FungibilityInvalidInput());
-    require(claimToken != address(0), ERC7540FungibilityInvalidInput());
+    require(delegate.code.length > 0, ERC7540FungibilityInvalidInput());
     DELEGATE = delegate;
+
+    require(claimToken.code.length > 0, ERC7540FungibilityInvalidInput());
     CLAIM_TOKEN = claimToken;
   }
 
