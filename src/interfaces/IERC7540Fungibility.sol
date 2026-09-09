@@ -28,19 +28,25 @@ pragma solidity ^0.8.28;
  *         share of the output. Vaults that fulfil each request at a
  *         single price are unaffected.
  *
- *         Cancellation returns the entire pending balance to a single
- *         controller and is only permitted when the caller holds the
- *         full supply of the tokenId and nothing is yet claimable;
- *         transferring any portion of a tokenId forfeits unilateral
- *         cancellation until the full supply is reacquired.
+ *         Cancellation returns the entire pending balance to the caller
+ *         as vault-side controller and is only permitted when the caller
+ *         holds the full supply of the tokenId and nothing is yet
+ *         claimable; transferring any portion of a tokenId forfeits
+ *         unilateral cancellation until the full supply is reacquired.
+ *
+ *         All entry points act strictly on msg.sender: the caller is
+ *         the source of funds for originations, the vault-side
+ *         controller for wraps, and the holder whose balance is burnt
+ *         for claims and cancellations. There is no operator or
+ *         delegation mechanism on this contract; a third party that
+ *         wants to act on a position must hold the ERC-6909 claim
+ *         tokens itself (acquired via standard ERC-6909 transfer,
+ *         approval, or operator semantics on the `ClaimToken`).
  */
 interface IERC7540Fungibility {
   // =========================================================================
   // Errors
   // =========================================================================
-
-  /// @notice Thrown when the caller is neither the owner/controller nor an approved operator.
-  error ERC7540FungibilityUnauthorized();
 
   /// @notice Thrown when an input is invalid (zero address, zero amount, etc).
   error ERC7540FungibilityInvalidInput();
@@ -62,17 +68,14 @@ interface IERC7540Fungibility {
   // Events
   // =========================================================================
 
-  /// @notice Emitted when an operator approval on this coordinator is set or revoked.
-  event OperatorSet(address indexed caller, address indexed operator, bool approved);
-
   /// @notice Emitted when an existing pending deposit request is wrapped into ERC-6909 claim tokens.
   event TransferDeposit(
     address indexed claimToken,
     uint256 indexed tokenId,
     address indexed vault,
+    address owner,
     address receiver,
-    uint256 requestId,
-    address caller
+    uint256 requestId
   );
 
   /// @notice Emitted when an existing pending redeem request is wrapped into ERC-6909 claim tokens.
@@ -80,9 +83,9 @@ interface IERC7540Fungibility {
     address indexed claimToken,
     uint256 indexed tokenId,
     address indexed vault,
+    address owner,
     address receiver,
-    uint256 requestId,
-    address caller
+    uint256 requestId
   );
 
   /// @notice Emitted when a new deposit request is originated and wrapped into ERC-6909 claim tokens.
@@ -90,9 +93,9 @@ interface IERC7540Fungibility {
     address indexed claimToken,
     uint256 indexed tokenId,
     address indexed vault,
+    address owner,
     address receiver,
-    uint256 assets,
-    address caller
+    uint256 assets
   );
 
   /// @notice Emitted when a wrapped, fulfilled request is partially or fully claimed against its vault.
@@ -102,8 +105,7 @@ interface IERC7540Fungibility {
     address indexed owner,
     address receiver,
     uint256 shares,
-    uint256 assets,
-    address caller
+    uint256 assets
   );
 
   /// @notice Emitted when a new redeem request is originated and wrapped into ERC-6909 claim tokens.
@@ -111,9 +113,9 @@ interface IERC7540Fungibility {
     address indexed claimToken,
     uint256 indexed tokenId,
     address indexed vault,
+    address owner,
     address receiver,
-    uint256 shares,
-    address caller
+    uint256 shares
   );
 
   /// @notice Emitted when a wrapped, fulfilled request is partially or fully claimed against its vault.
@@ -123,18 +125,11 @@ interface IERC7540Fungibility {
     address indexed owner,
     address receiver,
     uint256 shares,
-    uint256 assets,
-    address caller
+    uint256 assets
   );
 
-  /// @notice Emitted when a wrapped pending request is cancelled and its vault control returned to a chosen controller.
-  event Cancel(
-    address indexed claimToken,
-    uint256 indexed tokenId,
-    address indexed owner,
-    address controller,
-    address caller
-  );
+  /// @notice Emitted when a wrapped pending request is cancelled and its vault control returned to the owner.
+  event Cancel(address indexed claimToken, uint256 indexed tokenId, address indexed owner);
 
   // =========================================================================
   // Configuration
@@ -145,9 +140,6 @@ interface IERC7540Fungibility {
 
   /// @notice Address of the `ClaimToken` implementation cloned per (vault, kind).
   function CLAIM_TOKEN() external view returns (address);
-
-  /// @notice Returns true if `operator` is approved to act on behalf of `owner` on this coordinator.
-  function isOperator(address owner, address operator) external view returns (bool);
 
   // =========================================================================
   // State
@@ -229,13 +221,13 @@ interface IERC7540Fungibility {
    * @notice Wraps an existing pending deposit request into fungible ERC-6909 claim tokens.
    *
    * @dev    `vault` MUST implement `IERC7540Deposit` and `IERC8161DepositTransferable`.
-   *         msg.sender MUST be `controller` or its operator on this contract,
-   *         and this contract MUST be approved as an operator of `controller` on `vault`
-   *         so that the pending request can be transferred to a fresh delegate via ERC-8161.
+   *         msg.sender MUST be the current controller of the request on `vault`,
+   *         and MUST have approved this contract as an operator on `vault` so
+   *         that the pending request can be transferred to a fresh delegate
+   *         via ERC-8161.
    *
    * @param  vault      the vault holding the pending request
    * @param  requestId  the vault-side request identifier
-   * @param  controller the current controller of the request on the vault
    * @param  receiver   the recipient of the minted ERC-6909 tokens
    *
    * @return claimToken the (vault, deposit) `ClaimToken` contract; deployed lazily on first use
@@ -244,7 +236,6 @@ interface IERC7540Fungibility {
   function transferDeposit(
     address vault,
     uint256 requestId,
-    address controller,
     address receiver
   ) external returns (address claimToken, uint256 tokenId);
 
@@ -252,13 +243,13 @@ interface IERC7540Fungibility {
    * @notice Wraps an existing pending redeem request into fungible ERC-6909 claim tokens.
    *
    * @dev    `vault` MUST implement `IERC7540Redeem` and `IERC8161RedeemTransferable`.
-   *         msg.sender MUST be `controller` or its operator on this contract,
-   *         and this contract MUST be approved as an operator of `controller` on `vault`
-   *         so that the pending request can be transferred to a fresh delegate via ERC-8161.
+   *         msg.sender MUST be the current controller of the request on `vault`,
+   *         and MUST have approved this contract as an operator on `vault` so
+   *         that the pending request can be transferred to a fresh delegate
+   *         via ERC-8161.
    *
    * @param  vault      the vault holding the pending request
    * @param  requestId  the vault-side request identifier
-   * @param  controller the current controller of the request on the vault
    * @param  receiver   the recipient of the minted ERC-6909 tokens
    *
    * @return claimToken the (vault, redeem) `ClaimToken` contract; deployed lazily on first use
@@ -267,7 +258,6 @@ interface IERC7540Fungibility {
   function transferRedeem(
     address vault,
     uint256 requestId,
-    address controller,
     address receiver
   ) external returns (address claimToken, uint256 tokenId);
 
@@ -276,20 +266,18 @@ interface IERC7540Fungibility {
   // =========================================================================
 
   /**
-   * @notice Originates a new deposit request on `vault` from `owner`'s assets
+   * @notice Originates a new deposit request on `vault` from caller's assets
    *         and wraps it into fungible ERC-6909 claim tokens.
    *
    * @dev    `vault` MUST implement `IERC7540Deposit`. ERC-8161 support is
    *         not required because the request is opened directly through a
    *         freshly deployed per-token delegate.
    *
-   *         msg.sender MUST be `owner` or its operator on this contract.
-   *         `owner` MUST have approved this contract on the vault's
+   *         msg.sender MUST have approved this contract on the vault's
    *         underlying asset for at least `assets`.
    *
    * @param  vault    the vault to deposit into
-   * @param  assets   the amount of underlying asset to pull from `owner`
-   * @param  owner    the source of the underlying assets
+   * @param  assets   the amount of underlying asset to pull from caller
    * @param  receiver the recipient of the minted ERC-6909 tokens
    *
    * @return claimToken the (vault, deposit) `ClaimToken` contract; deployed lazily on first use
@@ -298,25 +286,22 @@ interface IERC7540Fungibility {
   function requestDeposit(
     address vault,
     uint256 assets,
-    address owner,
     address receiver
   ) external returns (address claimToken, uint256 tokenId);
 
   /**
-   * @notice Originates a new redeem request on `vault` from `owner`'s vault shares
+   * @notice Originates a new redeem request on `vault` from caller's vault shares
    *         and wraps it into fungible ERC-6909 claim tokens.
    *
    * @dev    `vault` MUST implement `IERC7540Redeem`. ERC-8161 support is
    *         not required because the request is opened directly through a
    *         freshly deployed per-token delegate.
    *
-   *         msg.sender MUST be `owner` or its operator on this contract.
-   *         `owner` MUST have approved this contract on the vault's
+   *         msg.sender MUST have approved this contract on the vault's
    *         share token for at least `shares`.
    *
    * @param  vault    the vault to redeem against
-   * @param  shares   the amount of vault shares to pull from `owner`
-   * @param  owner    the source of the vault shares
+   * @param  shares   the amount of vault shares to pull from caller
    * @param  receiver the recipient of the minted ERC-6909 tokens
    *
    * @return claimToken the (vault, redeem) `ClaimToken` contract; deployed lazily on first use
@@ -325,7 +310,6 @@ interface IERC7540Fungibility {
   function requestRedeem(
     address vault,
     uint256 shares,
-    address owner,
     address receiver
   ) external returns (address claimToken, uint256 tokenId);
 
@@ -399,7 +383,7 @@ interface IERC7540Fungibility {
 
   /**
    * @notice Cancels a wrapped pending request, transferring control of the
-   *         underlying vault request to `controller` and burning the entire
+   *         underlying vault request to caller and burning the entire
    *         ERC-6909 supply.
    *
    * @dev    Only permitted while the request is fully pending and the
@@ -407,14 +391,12 @@ interface IERC7540Fungibility {
    *         (claimToken, tokenId). The underlying vault MUST implement
    *         the appropriate ERC-8161 transferable extension.
    *
-   *         msg.sender MUST be the holder or its operator on this contract.
+   *         msg.sender MUST be the holder.
    *
    * @param  claimToken the `ClaimToken` contract for the wrapped request
    * @param  tokenId    the ERC-6909 token id of the wrapped request
-   * @param  owner      the owner to cancel the claim from
-   * @param  controller the address that becomes the new controller of the vault request
    */
-  function cancel(address claimToken, uint256 tokenId, address owner, address controller) external;
+  function cancel(address claimToken, uint256 tokenId) external;
 
   /**
    * @notice Claims `assets` of a fulfilled wrapped deposit request, burning the
@@ -426,13 +408,12 @@ interface IERC7540Fungibility {
    *         delivers vault shares to `receiver`. `claimToken` MUST be the
    *         (vault, deposit) `ClaimToken`. Partial claims are supported.
    *
-   *         msg.sender MUST be `owner` or its operator on this contract.
+   *         msg.sender MUST be the `owner` of the claim.
    *
    * @param  claimToken the deposit `ClaimToken` contract for the wrapped request
    * @param  tokenId    the ERC-6909 token id
    * @param  assets     the amount of ERC-6909 balance to burn and claim against
    * @param  receiver   the recipient of the vault shares
-   * @param  owner      the holder of the ERC-6909 balance being claimed
    *
    * @return shares the amount of vault shares delivered to `receiver`
    */
@@ -440,8 +421,7 @@ interface IERC7540Fungibility {
     address claimToken,
     uint256 tokenId,
     uint256 assets,
-    address receiver,
-    address owner
+    address receiver
   ) external returns (uint256 shares);
 
   /**
@@ -454,13 +434,12 @@ interface IERC7540Fungibility {
    *         delivers underlying assets to `receiver`. `claimToken` MUST be the
    *         (vault, redeem) `ClaimToken`. Partial claims are supported.
    *
-   *         msg.sender MUST be `owner` or its operator on this contract.
+   *         msg.sender MUST be `owner` of the claim.
    *
    * @param  claimToken the redeem `ClaimToken` contract for the wrapped request
    * @param  tokenId    the ERC-6909 token id
    * @param  shares     the amount of ERC-6909 balance to burn and claim against
    * @param  receiver   the recipient of the vault assets
-   * @param  owner      the holder of the ERC-6909 balance being claimed
    *
    * @return assets the amount of vault assets delivered to `receiver`
    */
@@ -468,25 +447,8 @@ interface IERC7540Fungibility {
     address claimToken,
     uint256 tokenId,
     uint256 shares,
-    address receiver,
-    address owner
+    address receiver
   ) external returns (uint256 assets);
-
-  // =========================================================================
-  // Operator
-  // =========================================================================
-
-  /**
-   * @notice Sets or revokes operator privileges for `spender` on the caller's behalf.
-   *
-   * @dev    An operator may originate, wrap, cancel, and redeem on behalf of msg.sender.
-   *
-   * @param  spender  the account being granted or revoked operator privileges
-   * @param  approved true to grant, false to revoke
-   *
-   * @return success always true
-   */
-  function setOperator(address spender, bool approved) external returns (bool success);
 
   // =========================================================================
   // Metadata
