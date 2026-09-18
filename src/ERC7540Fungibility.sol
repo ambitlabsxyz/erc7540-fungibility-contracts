@@ -295,9 +295,9 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     if (depositClaimToken(request.vault) == claimToken) {
       requireInterface(request.vault, type(IERC8161DepositTransferable).interfaceId);
 
-      // nothing is waiting to be claimed
-      uint256 claimable = IERC7540Deposit(request.vault).claimableDepositRequest(request.requestId, delegate);
-      require(claimable == 0, ERC7540FungibilityCancelNotAllowed(claimToken, tokenId));
+      // check that the total supply is still pending
+      uint256 pending = IERC7540Deposit(request.vault).pendingDepositRequest(request.requestId, delegate);
+      require(pending >= totalSupply, ERC7540FungibilityCancelNotAllowed(claimToken, tokenId));
 
       Delegate(delegate).call(
         request.vault,
@@ -306,9 +306,9 @@ contract ERC7540Fungibility is IERC7540Fungibility {
     } else {
       requireInterface(request.vault, type(IERC8161RedeemTransferable).interfaceId);
 
-      // nothing is waiting to be claimed
-      uint256 claimable = IERC7540Redeem(request.vault).claimableRedeemRequest(request.requestId, delegate);
-      require(claimable == 0, ERC7540FungibilityCancelNotAllowed(claimToken, tokenId));
+      // check that the total supply is still pending
+      uint256 pending = IERC7540Redeem(request.vault).pendingRedeemRequest(request.requestId, delegate);
+      require(pending >= totalSupply, ERC7540FungibilityCancelNotAllowed(claimToken, tokenId));
 
       Delegate(delegate).call(
         request.vault,
